@@ -1266,6 +1266,40 @@ fn pnpm_workspace_yaml_present_when_pnpm_needed() {
 }
 
 #[test]
+fn github_actions_workflow_renders_with_expected_shape() {
+    // CI = github-actions ships TWO workflow files. Both must render to a
+    // shape an Actions runner will accept: name + on + jobs at top level.
+    let mut r = Recipe::defaults();
+    r.project_slug = "ci_test".into();
+    r.ci = django_bakery_engine::CiProvider::GitHubActions;
+    let (_tmp, root) = render_recipe(&r);
+
+    let ci = read(&root, ".github/workflows/ci.yml");
+    for sentinel in ["name: CI", "on:", "jobs:", "lint-and-test:", "runs-on:"] {
+        assert!(ci.contains(sentinel), "ci.yml missing sentinel: {sentinel}");
+    }
+    // Generated projects use uv for Python and pnpm for JS — the workflow
+    // should reflect that, not pip / npm / poetry.
+    assert!(ci.contains("uv"), "ci.yml should drive python via uv");
+
+    let deploy = read(&root, ".github/workflows/deploy.yml");
+    for sentinel in ["name: Deploy", "on:", "jobs:", "deploy:", "tags:"] {
+        assert!(deploy.contains(sentinel), "deploy.yml missing sentinel: {sentinel}");
+    }
+}
+
+#[test]
+fn ci_workflow_absent_when_provider_is_none() {
+    let mut r = Recipe::defaults();
+    r.project_slug = "no_ci".into();
+    r.ci = django_bakery_engine::CiProvider::None;
+    let (_tmp, root) = render_recipe(&r);
+    assert_absent(&root, ".github/workflows/ci.yml");
+    assert_absent(&root, ".github/workflows/deploy.yml");
+    assert_absent(&root, ".gitlab-ci.yml");
+}
+
+#[test]
 fn csp_connect_src_extended_for_spa_origins() {
     let (_tmp, root) = render_recipe(&react_recipe());
     let body = read(&root, "config/settings/base.py");
