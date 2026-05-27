@@ -16,8 +16,8 @@ pub use context::Context;
 pub use error::{Error, Result};
 pub use recipe::{
     ApiLayer, CeleryBroker, CiProvider, ContainerSetup, CssFramework, DjangoVersion, Frontend,
-    GraphDb, JsLanguage, License, Mode, ProdEmail, PythonVersion, RadixFlavor, Recipe,
-    RelationalDb, Storage, TypeChecker, VersionControl,
+    FrontendVariant, GraphDb, JsLanguage, License, Mode, ProdEmail, PythonVersion, RadixFlavor,
+    Recipe, RelationalDb, Storage, TypeChecker, VersionControl,
 };
 pub use render::{RenderOptions, RenderReport, render};
 pub use versions::{ResolveMode, VersionMap, compat_check, resolve as resolve_versions};

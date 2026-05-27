@@ -5,8 +5,8 @@ use std::fmt;
 
 use anyhow::Result;
 use django_bakery_engine::{
-    ApiLayer, CiProvider, Frontend, GraphDb, JsLanguage, Mode, ProdEmail, RadixFlavor, Recipe,
-    RelationalDb, Storage, TypeChecker, VersionControl,
+    ApiLayer, CiProvider, Frontend, FrontendVariant, GraphDb, JsLanguage, Mode, ProdEmail,
+    RadixFlavor, Recipe, RelationalDb, Storage, TypeChecker, VersionControl,
 };
 use heck::ToSnakeCase;
 use inquire::{Confirm, Select, Text};
@@ -107,7 +107,18 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         frontend_options(),
         defaults.frontend,
     )?;
-    let radix_flavor = if frontend == Frontend::React {
+    let is_spa = matches!(
+        frontend,
+        Frontend::React | Frontend::Nuxt | Frontend::Vue | Frontend::Next
+    );
+    let frontend_variant = if is_spa {
+        pick("Frontend variant", variant_options(), defaults.frontend_variant)?
+    } else {
+        FrontendVariant::Full
+    };
+    let radix_flavor = if frontend == Frontend::React
+        && matches!(frontend_variant, FrontendVariant::Full)
+    {
         Some(pick(
             "Radix flavor",
             radix_options(),
@@ -116,12 +127,12 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
     } else {
         None
     };
-    let js_language = if matches!(frontend, Frontend::React | Frontend::Nuxt) {
+    let js_language = if is_spa {
         pick("Language", js_language_options(), defaults.js_language)?
     } else {
         defaults.js_language
     };
-    let js_testing = if matches!(frontend, Frontend::React | Frontend::Nuxt) {
+    let js_testing = if is_spa && matches!(frontend_variant, FrontendVariant::Full) {
         Confirm::new("Wire up Vitest 8 + Playwright?")
             .with_default(defaults.js_testing)
             .prompt()?
@@ -214,6 +225,7 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         api_layer,
         frontend,
         radix_flavor,
+        frontend_variant,
         js_language,
         js_testing,
         css_framework,
@@ -335,10 +347,27 @@ fn api_options() -> Vec<Labeled<ApiLayer>> {
 fn frontend_options() -> Vec<Labeled<Frontend>> {
     vec![
         Labeled { value: Frontend::HtmxAlpine, label: "HTMX + Alpine.js", hint: "server-rendered, minimal JS" },
-        Labeled { value: Frontend::React, label: "React + Vite", hint: "SPA, Radix UI" },
-        Labeled { value: Frontend::Nuxt, label: "Nuxt 4", hint: "Vue fullstack, Nitro" },
+        Labeled { value: Frontend::React, label: "React + Vite", hint: "SPA, optional Radix UI" },
+        Labeled { value: Frontend::Nuxt, label: "Nuxt 4", hint: "Vue + Nitro, SSR" },
+        Labeled { value: Frontend::Vue, label: "Vue 3 + Vite", hint: "SPA, no Nuxt opinions" },
+        Labeled { value: Frontend::Next, label: "Next.js 16", hint: "React + App Router, SSR" },
         Labeled { value: Frontend::DjangoTemplates, label: "Django templates only", hint: "no JS framework" },
         Labeled { value: Frontend::None, label: "None (API-only)", hint: "headless backend" },
+    ]
+}
+
+fn variant_options() -> Vec<Labeled<FrontendVariant>> {
+    vec![
+        Labeled {
+            value: FrontendVariant::Full,
+            label: "Full template",
+            hint: "auth wired, UI library, router, state — production-ready",
+        },
+        Labeled {
+            value: FrontendVariant::Skeleton,
+            label: "Skeleton",
+            hint: "minimal scaffold + Django integration — build your own from here",
+        },
     ]
 }
 

@@ -1,0 +1,28 @@
+{
+  "name": "{{ cookiecutter.project_slug | replace('_', '-') }}-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "engines": { "node": ">=24", "pnpm": ">=10" },
+  "scripts": {
+    "dev": "next dev --port {{ cookiecutter.frontend_dev_port }}",
+    "build": "next build",
+    "start": "next start --port {{ cookiecutter.frontend_dev_port }}",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^16.0.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^6.0.2",
+    "eslint": "^9.39.0",
+    "eslint-config-next": "^16.0.0"
+  }
+}

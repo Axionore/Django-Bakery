@@ -1,0 +1,19 @@
+const NAME = "{{ cookiecutter.project_name }}";
+const DESCRIPTION = "{{ cookiecutter.description }}";
+
+{% raw %}
+export default function App() {
+  return (
+    <main style={{ fontFamily: "system-ui, sans-serif", padding: "2rem", maxWidth: 640 }}>
+      <h1>{NAME}</h1>
+      <p>{DESCRIPTION}</p>
+      <p>
+        This is a <strong>skeleton</strong> scaffold. The Django backend is reachable
+        through Vite's dev proxy at <code>/api</code> and <code>/_allauth</code>.
+        See <code>frontend/README.md</code> for the security baseline and the steps to
+        add auth, routing, and a UI library.
+      </p>
+    </main>
+  );
+}
+{% endraw %}

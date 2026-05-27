@@ -28,6 +28,7 @@ pub struct Recipe {
     pub api_layer: ApiLayer,
     pub frontend: Frontend,
     pub radix_flavor: Option<RadixFlavor>,
+    pub frontend_variant: FrontendVariant,
     pub js_language: JsLanguage,
     pub js_testing: bool,
     pub css_framework: CssFramework,
@@ -70,6 +71,7 @@ impl Recipe {
             api_layer: ApiLayer::Ninja,
             frontend: Frontend::HtmxAlpine,
             radix_flavor: None,
+            frontend_variant: FrontendVariant::Full,
             js_language: JsLanguage::Typescript,
             js_testing: true,
             css_framework: CssFramework::Tailwind,
@@ -116,8 +118,14 @@ impl Recipe {
             return Err("author_email must contain '@'".into());
         }
         match self.frontend {
-            Frontend::React if self.radix_flavor.is_none() => {
-                return Err("radix_flavor is required when frontend is 'react'".into());
+            Frontend::React
+                if matches!(self.frontend_variant, FrontendVariant::Full)
+                    && self.radix_flavor.is_none() =>
+            {
+                return Err(
+                    "radix_flavor is required when frontend is 'react' and variant is 'full'"
+                        .into(),
+                );
             }
             _ => {}
         }
@@ -220,8 +228,19 @@ str_enum! {
         HtmxAlpine => "htmx-alpine",
         React => "react",
         Nuxt => "nuxt",
+        Vue => "vue",
+        Next => "next",
         DjangoTemplates => "django-templates",
         None => "none",
+    }
+}
+
+str_enum! {
+    /// Whether the SPA scaffold is opinion-free (skeleton) or comes wired with
+    /// auth, routing, UI library, and state management (full template).
+    FrontendVariant {
+        Full => "full",
+        Skeleton => "skeleton",
     }
 }
 

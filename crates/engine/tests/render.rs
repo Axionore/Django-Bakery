@@ -593,10 +593,140 @@ fn react_recipe() -> Recipe {
     let mut r = Recipe::defaults();
     r.project_slug = "react_app".into();
     r.frontend = Frontend::React;
+    r.frontend_variant = django_bakery_engine::FrontendVariant::Full;
     r.radix_flavor = Some(django_bakery_engine::RadixFlavor::Themes);
     r.js_language = django_bakery_engine::JsLanguage::Typescript;
     r.js_testing = true;
     r
+}
+
+fn skeleton_recipe(frontend: Frontend) -> Recipe {
+    let mut r = Recipe::defaults();
+    r.project_slug = format!("{}_skel", frontend.as_str().replace('-', "_"));
+    r.frontend = frontend;
+    r.frontend_variant = django_bakery_engine::FrontendVariant::Skeleton;
+    r.radix_flavor = None;
+    r.js_language = django_bakery_engine::JsLanguage::Typescript;
+    r.js_testing = false;
+    r
+}
+
+#[test]
+fn skeleton_react_emits_minimal_tree() {
+    let (_tmp, root) = render_recipe(&skeleton_recipe(Frontend::React));
+    for f in [
+        "pnpm-workspace.yaml",
+        "frontend/package.json",
+        "frontend/tsconfig.json",
+        "frontend/vite.config.ts",
+        "frontend/eslint.config.js",
+        "frontend/index.html",
+        "frontend/README.md",
+        "frontend/.env.example",
+        "frontend/.gitignore",
+        "frontend/src/main.tsx",
+        "frontend/src/App.tsx",
+    ] {
+        assert_present(&root, f);
+    }
+    // The FULL-only files must NOT appear in the skeleton output.
+    for f in [
+        "frontend/src/router.tsx",
+        "frontend/src/auth/client.ts",
+        "frontend/src/routes/account/login.tsx",
+        "frontend/playwright.config.ts",
+    ] {
+        assert_absent(&root, f);
+    }
+}
+
+#[test]
+fn skeleton_nuxt_emits_minimal_tree() {
+    let (_tmp, root) = render_recipe(&skeleton_recipe(Frontend::Nuxt));
+    for f in [
+        "pnpm-workspace.yaml",
+        "frontend/package.json",
+        "frontend/nuxt.config.ts",
+        "frontend/app.vue",
+        "frontend/tsconfig.json",
+        "frontend/README.md",
+        "frontend/.env.example",
+        "frontend/.gitignore",
+        "frontend/eslint.config.js",
+    ] {
+        assert_present(&root, f);
+    }
+}
+
+#[test]
+fn skeleton_vue_emits_minimal_tree() {
+    let (_tmp, root) = render_recipe(&skeleton_recipe(Frontend::Vue));
+    for f in [
+        "pnpm-workspace.yaml",
+        "frontend/package.json",
+        "frontend/vite.config.ts",
+        "frontend/tsconfig.json",
+        "frontend/env.d.ts",
+        "frontend/index.html",
+        "frontend/src/main.ts",
+        "frontend/src/App.vue",
+        "frontend/eslint.config.js",
+        "frontend/README.md",
+    ] {
+        assert_present(&root, f);
+    }
+}
+
+#[test]
+fn skeleton_next_emits_minimal_tree() {
+    let (_tmp, root) = render_recipe(&skeleton_recipe(Frontend::Next));
+    for f in [
+        "pnpm-workspace.yaml",
+        "frontend/package.json",
+        "frontend/next.config.ts",
+        "frontend/tsconfig.json",
+        "frontend/next-env.d.ts",
+        "frontend/app/layout.tsx",
+        "frontend/app/page.tsx",
+        "frontend/eslint.config.js",
+        "frontend/README.md",
+    ] {
+        assert_present(&root, f);
+    }
+}
+
+#[test]
+fn all_skeleton_readmes_document_owasp_baseline() {
+    for fe in [Frontend::React, Frontend::Nuxt, Frontend::Vue, Frontend::Next] {
+        let (_tmp, root) = render_recipe(&skeleton_recipe(fe));
+        let body = read(&root, "frontend/README.md");
+        assert!(
+            body.contains("OWASP"),
+            "{} skeleton README must document the OWASP baseline",
+            fe.as_str()
+        );
+        let lower = body.to_lowercase();
+        assert!(
+            lower.contains("localstorage") && (lower.contains("never") || lower.contains("anti-pattern")),
+            "{} skeleton README must warn against JWT-in-localStorage",
+            fe.as_str()
+        );
+    }
+}
+
+#[test]
+fn skeleton_eslint_bans_raw_html_injection() {
+    let (_tmp, react) = render_recipe(&skeleton_recipe(Frontend::React));
+    assert!(read(&react, "frontend/eslint.config.js").contains("react/no-danger"));
+
+    let (_tmp2, vue) = render_recipe(&skeleton_recipe(Frontend::Vue));
+    assert!(read(&vue, "frontend/eslint.config.js").contains("vue/no-v-html"));
+
+    let (_tmp3, nuxt) = render_recipe(&skeleton_recipe(Frontend::Nuxt));
+    assert!(read(&nuxt, "frontend/eslint.config.js").contains("vue/no-v-html"));
+
+    let (_tmp4, next) = render_recipe(&skeleton_recipe(Frontend::Next));
+    assert!(read(&next, "frontend/eslint.config.js").contains("react/no-danger"));
 }
 
 #[test]

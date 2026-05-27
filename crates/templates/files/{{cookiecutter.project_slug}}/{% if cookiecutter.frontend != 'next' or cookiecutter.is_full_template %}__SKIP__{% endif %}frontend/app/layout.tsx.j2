@@ -1,0 +1,21 @@
+import type { Metadata } from "next";
+
+const NAME = "{{ cookiecutter.project_name }}";
+const DESCRIPTION = "{{ cookiecutter.description }}";
+
+export const metadata: Metadata = {
+  title: NAME,
+  description: DESCRIPTION,
+};
+
+{% raw %}
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en">
+      <body style={{ fontFamily: "system-ui, sans-serif", margin: 0 }}>{children}</body>
+    </html>
+  );
+}
+{% endraw %}

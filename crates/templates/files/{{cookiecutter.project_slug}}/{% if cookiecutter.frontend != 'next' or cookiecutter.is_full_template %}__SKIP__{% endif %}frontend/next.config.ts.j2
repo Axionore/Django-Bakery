@@ -1,0 +1,35 @@
+import type { NextConfig } from "next";
+
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+
+const config: NextConfig = {
+  reactStrictMode: true,
+  // OWASP A09 — no production source maps.
+  productionBrowserSourceMaps: false,
+  // Same-origin proxy (OWASP A05 — avoids wildcard CORS holes). Browser sees
+  // /api/* and /_allauth/* as same-origin, so session cookies + CSRF Just Work.
+  async rewrites() {
+    return [
+      { source: "/api/:path*", destination: `${BACKEND}/api/:path*` },
+      { source: "/_allauth/:path*", destination: `${BACKEND}/_allauth/:path*` },
+      { source: "/static/:path*", destination: `${BACKEND}/static/:path*` },
+      { source: "/media/:path*", destination: `${BACKEND}/media/:path*` },
+    ];
+  },
+  // OWASP A05 — strict response headers by default.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "same-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+        ],
+      },
+    ];
+  },
+};
+
+export default config;

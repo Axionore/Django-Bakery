@@ -138,7 +138,10 @@ impl Context {
             "has_frontend_spa".into(),
             json!(matches!(
                 r.frontend,
-                crate::recipe::Frontend::React | crate::recipe::Frontend::Nuxt
+                crate::recipe::Frontend::React
+                    | crate::recipe::Frontend::Nuxt
+                    | crate::recipe::Frontend::Vue
+                    | crate::recipe::Frontend::Next
             )),
         );
         m.insert(
@@ -157,8 +160,8 @@ impl Context {
         );
         // Frontend-context booleans + dev port.
         let dev_port: u16 = match r.frontend {
-            crate::recipe::Frontend::React => 5173,
-            crate::recipe::Frontend::Nuxt => 3000,
+            crate::recipe::Frontend::React | crate::recipe::Frontend::Vue => 5173,
+            crate::recipe::Frontend::Nuxt | crate::recipe::Frontend::Next => 3000,
             _ => 0,
         };
         m.insert("frontend_dev_port".into(), json!(dev_port));
@@ -172,6 +175,18 @@ impl Context {
                 r.api_layer,
                 crate::recipe::ApiLayer::Ninja | crate::recipe::ApiLayer::Drf
             )),
+        );
+        m.insert(
+            "frontend_variant".into(),
+            json!(r.frontend_variant.as_str()),
+        );
+        m.insert(
+            "is_full_template".into(),
+            json!(matches!(r.frontend_variant, crate::recipe::FrontendVariant::Full)),
+        );
+        m.insert(
+            "is_skeleton".into(),
+            json!(matches!(r.frontend_variant, crate::recipe::FrontendVariant::Skeleton)),
         );
         m
     }
@@ -218,7 +233,10 @@ impl Context {
             "has_frontend_spa".into(),
             json!(matches!(
                 r.frontend,
-                crate::recipe::Frontend::React | crate::recipe::Frontend::Nuxt
+                crate::recipe::Frontend::React
+                    | crate::recipe::Frontend::Nuxt
+                    | crate::recipe::Frontend::Vue
+                    | crate::recipe::Frontend::Next
             )),
         );
         m.insert(
