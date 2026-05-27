@@ -1326,6 +1326,47 @@ fn compose_only_setup_ships_compose_files_without_traefik() {
 }
 
 #[test]
+fn production_dockerfile_meets_security_baseline() {
+    let mut r = Recipe::defaults();
+    r.project_slug = "docker_test".into();
+    r.container_setup = django_bakery_engine::ContainerSetup::ComposeTraefik;
+    let (_tmp, root) = render_recipe(&r);
+
+    let body = read(&root, "compose/production/django/Dockerfile");
+
+    // Multi-stage build — keeps the runtime image free of build toolchains
+    // (build-essential, dev libs) that pad attack surface.
+    let from_count = body.matches("\nFROM ").count() + if body.starts_with("FROM ") { 1 } else { 0 };
+    assert!(from_count >= 2, "Dockerfile must be multi-stage (≥2 FROM directives), saw {from_count}");
+    assert!(body.contains("AS builder"), "first stage must be named `builder`");
+
+    // Non-root runtime — never run as root in production.
+    assert!(body.contains("USER django"), "Dockerfile must drop to a non-root user");
+    assert!(body.contains("groupadd --system django"), "must create the django system group");
+    assert!(body.contains("useradd --system --gid django"), "must create a system user, not interactive");
+
+    // Reproducibility — frozen lockfile, pinned uv via ARG, pinned base image.
+    assert!(body.contains("uv sync --frozen"), "must use frozen lockfile for reproducible builds");
+    assert!(body.contains("ARG UV_VERSION="), "uv version must be pinned via ARG (not :latest)");
+    assert!(body.contains("slim-bookworm"), "base image must be pinned to a specific Debian release");
+    assert!(!body.contains("python:latest"), "Dockerfile must not use python:latest");
+
+    // Apt hygiene — `--no-install-recommends` keeps the runtime lean.
+    assert!(body.contains("--no-install-recommends"), "apt-get install must use --no-install-recommends");
+    assert!(body.contains("rm -rf /var/lib/apt/lists"), "must clear apt cache after install");
+
+    // Healthcheck — required for docker compose orchestration + early
+    // detection of zombie containers (OWASP A09 ops resilience).
+    assert!(body.contains("HEALTHCHECK"), "Dockerfile must declare a HEALTHCHECK");
+    assert!(body.contains("/healthz/"), "HEALTHCHECK must probe /healthz/ (the wired liveness endpoint)");
+
+    // Process model — explicit ENTRYPOINT + CMD, never `CMD python manage.py`
+    // in a string form (shell-form CMD inherits PID 1 from sh, breaks signals).
+    assert!(body.contains("ENTRYPOINT [\"/entrypoint\"]"), "ENTRYPOINT must use exec form");
+    assert!(body.contains("CMD [\"/start\"]"), "CMD must use exec form");
+}
+
+#[test]
 fn no_container_setup_ships_no_compose_files() {
     let mut r = Recipe::defaults();
     r.project_slug = "no_container".into();

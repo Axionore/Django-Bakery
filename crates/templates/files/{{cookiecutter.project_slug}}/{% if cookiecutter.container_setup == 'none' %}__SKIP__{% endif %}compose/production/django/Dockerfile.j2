@@ -62,5 +62,13 @@ RUN chmod +x /start /entrypoint
 USER django
 WORKDIR /app
 EXPOSE 5000
+
+# Liveness probe — `/healthz/` is wired into every generated project and
+# returns 200 once Django + DB connection are up. Letting `docker compose`
+# observe container health (vs assuming a process-up means service-up) was an
+# OWASP A09 / ops-resilience gap; this directive closes it.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl --fail --silent --show-error http://127.0.0.1:5000/healthz/ || exit 1
+
 ENTRYPOINT ["/entrypoint"]
 CMD ["/start"]
