@@ -2,7 +2,11 @@
 import { storeToRefs } from "pinia";
 import { useAuthStore } from "~/stores/auth";
 
-const projectName = import.meta.env.VITE_APP_NAME;
+// Inline the project name at template-render time so the H1 paints with the
+// right value even when `VITE_APP_NAME` is missing from `.env`. Vite's
+// `import.meta.env.VITE_APP_NAME` returns undefined in that case, which Vue
+// renders as an empty heading — a UX regression vs React/Next.
+const projectName = "{{ cookiecutter.project_name }}";
 const description = "{{ cookiecutter.description }}";
 const auth = useAuthStore();
 const { user } = storeToRefs(auth);
