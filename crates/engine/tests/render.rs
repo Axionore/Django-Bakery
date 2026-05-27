@@ -1289,6 +1289,54 @@ fn github_actions_workflow_renders_with_expected_shape() {
 }
 
 #[test]
+fn compose_traefik_setup_ships_both_compose_files_and_traefik_config() {
+    let mut r = Recipe::defaults();
+    r.project_slug = "compose_test".into();
+    r.container_setup = django_bakery_engine::ContainerSetup::ComposeTraefik;
+    let (_tmp, root) = render_recipe(&r);
+
+    // Local + production compose files
+    for f in ["compose.local.yml", "compose.production.yml"] {
+        let body = read(&root, f);
+        assert!(body.contains("services:"), "{f} must declare services");
+        assert!(body.contains("django:"), "{f} must include the django service");
+    }
+
+    // Production compose adds traefik
+    let prod = read(&root, "compose.production.yml");
+    assert!(prod.contains("traefik:"), "production compose must include traefik service");
+
+    // Traefik config + Dockerfiles exist
+    let traefik_yml = read(&root, "compose/production/traefik/traefik.yml");
+    assert!(traefik_yml.contains("entryPoints:"), "traefik.yml must define entryPoints");
+    assert!(traefik_yml.contains("certificatesResolvers:") || traefik_yml.contains("certificates"),
+            "traefik.yml must configure TLS resolver");
+}
+
+#[test]
+fn compose_only_setup_ships_compose_files_without_traefik() {
+    let mut r = Recipe::defaults();
+    r.project_slug = "compose_only".into();
+    r.container_setup = django_bakery_engine::ContainerSetup::ComposeOnly;
+    let (_tmp, root) = render_recipe(&r);
+
+    let prod = read(&root, "compose.production.yml");
+    assert!(!prod.contains("traefik:"), "compose-only must NOT include traefik");
+    assert_absent(&root, "compose/production/traefik/traefik.yml");
+}
+
+#[test]
+fn no_container_setup_ships_no_compose_files() {
+    let mut r = Recipe::defaults();
+    r.project_slug = "no_container".into();
+    r.container_setup = django_bakery_engine::ContainerSetup::None;
+    let (_tmp, root) = render_recipe(&r);
+    assert_absent(&root, "compose.local.yml");
+    assert_absent(&root, "compose.production.yml");
+    assert_absent(&root, "compose/production/django/Dockerfile");
+}
+
+#[test]
 fn ci_workflow_absent_when_provider_is_none() {
     let mut r = Recipe::defaults();
     r.project_slug = "no_ci".into();
