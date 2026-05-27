@@ -22,13 +22,15 @@ from ninja.security import django_auth
 from apps.users.models import User
 
 
+# django-ninja 1.x: CSRF protection is automatic when using `django_auth`
+# (session-based) — the `csrf=True` constructor kwarg was removed in 1.0.
+# Django's CsrfViewMiddleware handles enforcement.
 api = NinjaAPI(
     title="{{ cookiecutter.project_name }} API",
     description="{{ cookiecutter.description }}",
     version="0.1.0",
     docs_url="/docs",
     auth=django_auth,
-    csrf=True,
 )
 
 

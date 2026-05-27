@@ -28,12 +28,17 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    try:
-        import debug_toolbar  # noqa: F401
+    # Only wire debug_toolbar URLs when the app is actually installed
+    # (USE_DEBUG_TOOLBAR=True in env). The dep is in dev extras, so the import
+    # always succeeds — but the model isn't registered unless we opt-in via
+    # INSTALLED_APPS, and importing the URLs would fail then.
+    if "debug_toolbar" in settings.INSTALLED_APPS:
+        try:
+            import debug_toolbar  # noqa: F401
 
-        urlpatterns = [path("__debug__/", include("debug_toolbar.urls")), *urlpatterns]
-    except ImportError:  # pragma: no cover
-        pass
+            urlpatterns = [path("__debug__/", include("debug_toolbar.urls")), *urlpatterns]
+        except ImportError:  # pragma: no cover
+            pass
 
 handler400 = "apps.core.views.bad_request"
 handler403 = "apps.core.views.permission_denied"
