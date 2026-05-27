@@ -131,13 +131,23 @@ elif grep -q '"pymysql\|"mysqlclient' "$PROJ_DIR/pyproject.toml" 2>/dev/null; th
     MY_CONTAINER="bakery-e2e-mysql-${SCENARIO//[^a-z0-9]/_}"
     MY_PASSWORD="e2e-only-not-secret"
     MY_DB=bakery_e2e
-    echo "↻  starting MySQL 9 in container $MY_CONTAINER (ephemeral host port)…"
+    # Pick MySQL vs MariaDB image from the recipe — both speak the same wire
+    # protocol and use the same PyMySQL driver, but the image + version
+    # differs for production-fidelity testing.
+    if grep -q 'relational_db = "mariadb"' "$RECIPE"; then
+        MY_IMAGE="mariadb:lts"
+        MY_LABEL="MariaDB LTS"
+    else
+        MY_IMAGE="mysql:9.4"
+        MY_LABEL="MySQL 9"
+    fi
+    echo "↻  starting $MY_LABEL in container $MY_CONTAINER (ephemeral host port)…"
     docker rm -f "$MY_CONTAINER" >/dev/null 2>&1 || true
     docker run --rm -d --name "$MY_CONTAINER" \
         -e MYSQL_ROOT_PASSWORD="$MY_PASSWORD" \
         -e MYSQL_DATABASE="$MY_DB" \
         -p '127.0.0.1::3306' \
-        mysql:9.4 >/dev/null
+        "$MY_IMAGE" >/dev/null
     echo "$MY_CONTAINER" > "$SCRATCH/.pg-container"
     MY_PORT=$(docker port "$MY_CONTAINER" 3306/tcp | head -1 | sed 's/.*://')
     [[ -n "$MY_PORT" ]] || { echo "✘  failed to read assigned MySQL port" >&2; exit 1; }
