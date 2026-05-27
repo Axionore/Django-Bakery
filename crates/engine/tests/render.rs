@@ -1246,13 +1246,15 @@ fn pnpm_workspace_yaml_present_when_pnpm_needed() {
     assert!(body.contains("onlyBuiltDependencies"), "must carry build-script allowlist");
 
     // HTMX + Tailwind (the default) ships a root package.json for the Tailwind
-    // CLI build — so it also needs the workspace.yaml to carry pnpm settings,
-    // but with no `packages:` since the root IS the package.
+    // CLI build — pnpm 11 requires `packages:` even when the workspace has
+    // only one member, so we list "." (the project root itself).
     let mut htmx = Recipe::defaults();
     htmx.project_slug = "htmx_app".into();
     let (_tmp2, r2) = render_recipe(&htmx);
     let body = read(&r2, "pnpm-workspace.yaml");
-    assert!(!body.contains("packages:"), "htmx-only workspace.yaml has no nested packages");
+    assert!(body.contains("packages:"), "htmx workspace.yaml must declare packages (pnpm 11 requires it)");
+    assert!(body.contains("\".\""), "htmx workspace.yaml lists \".\" as the only package");
+    assert!(!body.contains("- frontend"), "htmx workspace must not reference a nested frontend dir");
     assert!(body.contains("onlyBuiltDependencies"), "must still carry build-script allowlist");
 
     // HTMX without Tailwind: no Node at all, so no workspace.yaml.

@@ -1,0 +1,35 @@
+project_name = "Next Skel"
+project_slug = "next_skel"
+description = "Skeleton-variant next wireframe"
+author_name = "e2e"
+author_email = "e2e@example.com"
+domain_name = "next-skel.example.com"
+license = "mit"
+open_source = true
+
+python_version = "3.14"
+django_version = "6.0"
+mode = "development"
+relational_db = "sqlite"
+graph_db = "none"
+api_layer = "ninja"
+frontend = "next"
+frontend_variant = "skeleton"
+js_language = "typescript"
+js_testing = true
+css_framework = "tailwind"
+
+use_celery = false
+celery_broker = "redis"
+use_mailpit = false
+prod_email = "console"
+storage = "whitenoise"
+use_sentry = false
+use_observability = false
+use_feature_flags = false
+type_checker = "none"
+use_pre_commit = false
+ci = "none"
+container_setup = "none"
+version_control = "none"
+timezone = "UTC"
