@@ -29,7 +29,7 @@ jobs:
       TARGET: ${{ matrix.target }}
       REF_NAME: ${{ github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.95"
@@ -59,12 +59,12 @@ jobs:
             tar -C dist -czf "dist/${name}.tar.gz" "${name}"
           fi
       - name: Generate build-provenance attestation (SLSA)
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/*.tar.gz
             dist/*.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.target }}
           path: dist/
@@ -73,8 +73,8 @@ jobs:
     needs: release-binaries
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -84,7 +84,7 @@ jobs:
           sha256sum *.tar.gz *.zip 2>/dev/null > SHA256SUMS || true
           ls -la
       - name: Create GH Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/*.tar.gz
@@ -96,10 +96,10 @@ jobs:
     needs: release-binaries
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v6
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -115,7 +115,7 @@ jobs:
           repo='${{ github.repository }}'
           echo "name=ghcr.io/${repo,,}" >> "$GITHUB_OUTPUT"
       - id: build-push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: installer/Dockerfile
@@ -125,7 +125,7 @@ jobs:
             ${{ steps.img.outputs.name }}:latest
             ${{ steps.img.outputs.name }}:${{ github.ref_name }}
       - name: Attest GHCR image
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ steps.img.outputs.name }}
           subject-digest: ${{ steps.build-push.outputs.digest }}
@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !contains(github.ref_name, 'rc') && !contains(github.ref_name, 'alpha') && !contains(github.ref_name, 'beta') }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.95"
@@ -170,8 +170,8 @@ jobs:
     env:
       TAP_REPO: Axionore/homebrew-tap
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
