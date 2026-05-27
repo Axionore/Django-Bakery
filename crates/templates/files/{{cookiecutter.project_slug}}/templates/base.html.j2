@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{% raw %}{% block description %}{% endraw %}{{ cookiecutter.description }}{% raw %}{% endblock %}{% endraw %}">
     <title>{% raw %}{% block title %}{% endraw %}{{ cookiecutter.project_name }}{% raw %}{% endblock %}{% endraw %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% raw %}{% static 'favicon.svg' %}{% endraw %}">
 {%- if cookiecutter.frontend == 'htmx-alpine' and cookiecutter.css_framework == 'tailwind' %}
     {# Tailwind v4 requires a build step (`@theme`, `@import "tailwindcss"`):
        `app.css` is the SOURCE, `app.compiled.css` is the compiled output served
