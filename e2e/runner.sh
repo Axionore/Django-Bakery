@@ -127,6 +127,30 @@ if grep -q '"psycopg' "$PROJ_DIR/pyproject.toml" 2>/dev/null; then
         sleep 1
     done
     DB_URL="postgres://postgres:$PG_PASSWORD@127.0.0.1:$PG_PORT/$PG_DB"
+elif grep -q '"pymysql\|"mysqlclient' "$PROJ_DIR/pyproject.toml" 2>/dev/null; then
+    MY_CONTAINER="bakery-e2e-mysql-${SCENARIO//[^a-z0-9]/_}"
+    MY_PASSWORD="e2e-only-not-secret"
+    MY_DB=bakery_e2e
+    echo "↻  starting MySQL 9 in container $MY_CONTAINER (ephemeral host port)…"
+    docker rm -f "$MY_CONTAINER" >/dev/null 2>&1 || true
+    docker run --rm -d --name "$MY_CONTAINER" \
+        -e MYSQL_ROOT_PASSWORD="$MY_PASSWORD" \
+        -e MYSQL_DATABASE="$MY_DB" \
+        -p '127.0.0.1::3306' \
+        mysql:9.4 >/dev/null
+    echo "$MY_CONTAINER" > "$SCRATCH/.pg-container"
+    MY_PORT=$(docker port "$MY_CONTAINER" 3306/tcp | head -1 | sed 's/.*://')
+    [[ -n "$MY_PORT" ]] || { echo "✘  failed to read assigned MySQL port" >&2; exit 1; }
+    echo "    → host port :$MY_PORT"
+    # MySQL takes ~15-25s to be ready on first boot (vs Postgres' 2-3s).
+    for _ in $(seq 1 60); do
+        if docker exec "$MY_CONTAINER" mysqladmin ping -h 127.0.0.1 -uroot -p"$MY_PASSWORD" --silent >/dev/null 2>&1; then
+            echo "    ✓ MySQL ready"
+            break
+        fi
+        sleep 1
+    done
+    DB_URL="mysql://root:$MY_PASSWORD@127.0.0.1:$MY_PORT/$MY_DB"
 fi
 
 cat > "$PROJ_DIR/.env" <<EOF

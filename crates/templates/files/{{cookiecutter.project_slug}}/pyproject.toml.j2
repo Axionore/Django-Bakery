@@ -55,7 +55,12 @@ dependencies = [
     # --- database (PostgreSQL) ---
     "psycopg[binary,pool]>=3.2",
 {%- elif cookiecutter.is_mysqlish %}
-    "mysqlclient>=2.2",
+    # PyMySQL — pure-Python MySQL/MariaDB driver. No `libmariadb-dev` build
+    # dependency, works on any dev machine. Aliased to `MySQLdb` via the shim
+    # in `config/__init__.py`. Slightly slower than `mysqlclient` (~5-10% on
+    # heavy queries) but the portability win is worth it for a starter
+    # template; swap to `mysqlclient>=2.2` when you outgrow the perf gap.
+    "pymysql>=1.1",
 {%- endif %}
 {%- if cookiecutter.use_celery %}
     # --- celery ---
