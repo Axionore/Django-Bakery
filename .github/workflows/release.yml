@@ -120,3 +120,112 @@ jobs:
           subject-name: ghcr.io/${{ github.repository }}
           subject-digest: ${{ steps.build-push.outputs.digest }}
           push-to-registry: true
+
+  crates-io:
+    # Publish the three workspace crates to crates.io in dependency order:
+    # templates → engine → cli. Each `cargo publish --wait-for-publish` blocks
+    # until the index registers the new version, so the next crate can resolve.
+    # Requires the `CRATES_IO_TOKEN` repo secret (Trusted Publishing-eligible
+    # account scope on crates.io).
+    needs: release-binaries
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref_name, 'rc') && !contains(github.ref_name, 'alpha') && !contains(github.ref_name, 'beta') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.95"
+      - uses: Swatinem/rust-cache@v2
+      - name: Publish django-bakery-templates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: cargo publish -p django-bakery-templates --locked
+      - name: Publish django-bakery-engine
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: cargo publish -p django-bakery-engine --locked
+      - name: Publish django-bakery (cli)
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: cargo publish -p django-bakery --locked
+
+  homebrew:
+    # Update the homebrew-tap repo's `Formula/django-bakery.rb` with the
+    # SHA-256 sums of the macOS + Linux release tarballs. Requires a
+    # `HOMEBREW_TAP_TOKEN` repo secret with `contents: write` on the tap
+    # (a PAT or GitHub App installation token).
+    needs: release-binaries
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref_name, 'rc') && !contains(github.ref_name, 'alpha') && !contains(github.ref_name, 'beta') }}
+    env:
+      TAP_REPO: Axionore/homebrew-tap
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Generate Homebrew formula
+        run: |
+          set -euo pipefail
+          VERSION=${GITHUB_REF_NAME#v}
+          REPO="${{ github.repository }}"
+          REL_URL="https://github.com/${REPO}/releases/download/${GITHUB_REF_NAME}"
+          cd dist
+          SHA_LINUX_X64=$(sha256sum  "django-bakery-${GITHUB_REF_NAME}-x86_64-unknown-linux-musl.tar.gz"  | awk '{print $1}')
+          SHA_LINUX_ARM=$(sha256sum  "django-bakery-${GITHUB_REF_NAME}-aarch64-unknown-linux-musl.tar.gz" | awk '{print $1}')
+          SHA_MAC_X64=$(sha256sum    "django-bakery-${GITHUB_REF_NAME}-x86_64-apple-darwin.tar.gz"        | awk '{print $1}')
+          SHA_MAC_ARM=$(sha256sum    "django-bakery-${GITHUB_REF_NAME}-aarch64-apple-darwin.tar.gz"      | awk '{print $1}')
+          cd ..
+          cat > django-bakery.rb <<RB
+          class DjangoBakery < Formula
+            desc "Rust-powered Django 6 project generator"
+            homepage "https://github.com/${REPO}"
+            version "${VERSION}"
+            license "MIT"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "${REL_URL}/django-bakery-${GITHUB_REF_NAME}-aarch64-apple-darwin.tar.gz"
+                sha256 "${SHA_MAC_ARM}"
+              else
+                url "${REL_URL}/django-bakery-${GITHUB_REF_NAME}-x86_64-apple-darwin.tar.gz"
+                sha256 "${SHA_MAC_X64}"
+              end
+            end
+
+            on_linux do
+              if Hardware::CPU.arm?
+                url "${REL_URL}/django-bakery-${GITHUB_REF_NAME}-aarch64-unknown-linux-musl.tar.gz"
+                sha256 "${SHA_LINUX_ARM}"
+              else
+                url "${REL_URL}/django-bakery-${GITHUB_REF_NAME}-x86_64-unknown-linux-musl.tar.gz"
+                sha256 "${SHA_LINUX_X64}"
+              end
+            end
+
+            def install
+              bin.install "django-bakery-${GITHUB_REF_NAME}-#{Hardware::CPU.arch}-#{OS.kernel_name.downcase == "darwin" ? "apple-darwin" : "unknown-linux-musl"}" => "django-bakery"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/django-bakery --version")
+            end
+          end
+          RB
+          echo '---'
+          cat django-bakery.rb
+      - name: Push formula to tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPO}.git" tap
+          mkdir -p tap/Formula
+          mv django-bakery.rb tap/Formula/django-bakery.rb
+          cd tap
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add Formula/django-bakery.rb
+          git commit -m "django-bakery ${GITHUB_REF_NAME}" || { echo 'no changes'; exit 0; }
+          git push
