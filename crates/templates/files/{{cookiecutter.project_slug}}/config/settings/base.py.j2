@@ -148,6 +148,9 @@ ACCOUNT_RATE_LIMITS = {"login_failed": "5/5m"}
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
 MFA_PASSKEY_LOGIN_ENABLED = False
 MFA_TOTP_ISSUER = "{{ cookiecutter.project_name }}"
+# Project policy — staff/superuser accounts MUST enroll MFA. Enforced by
+# apps.users.middleware.RequireMfaForStaffMiddleware. Set to False ONLY in test envs.
+STAFF_MFA_REQUIRED = env.bool("STAFF_MFA_REQUIRED", default=True)
 
 LOGIN_REDIRECT_URL = "core:home"
 LOGIN_URL = "account_login"
@@ -182,6 +185,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "apps.users.middleware.RequireMfaForStaffMiddleware",
     "csp.middleware.CSPMiddleware",
 {%- if cookiecutter.use_feature_flags %}
     "waffle.middleware.WaffleMiddleware",

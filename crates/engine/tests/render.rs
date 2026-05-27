@@ -290,6 +290,87 @@ fn pyproject_pins_chosen_api_layer() {
 }
 
 #[test]
+fn ninja_api_enforces_staff_only_user_listing() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let body = read(&root, "apps/api/ninja_api.py");
+    // The /me endpoint exists and is unauthenticated to non-staff but scoped to caller.
+    assert!(body.contains("@api.get(\"/me\""), "/me endpoint must exist");
+    assert!(
+        body.contains("await User.objects.aget(pk=request.user.pk)"),
+        "/me must fetch by request.user.pk only — never by an arbitrary user_id"
+    );
+    // /users and /users/{id} must hard-gate on _require_staff.
+    assert!(
+        body.contains("_require_staff(request)"),
+        "staff-only endpoints must call the _require_staff gate"
+    );
+    assert!(
+        body.contains("not user.is_staff"),
+        "the gate must check is_staff and reject anything else"
+    );
+    // The pre-fix vulnerable shape must NOT come back: a /users endpoint that returns
+    // ALL users to any authenticated session.
+    assert!(
+        !body.contains("async def list_users(request, limit: int = 50, offset: int = 0) -> list[UserOut]:\n    qs = User.objects.all().order_by(\"id\")[offset : offset + limit]\n    return"),
+        "vulnerable pre-fix list_users body has reappeared"
+    );
+}
+
+#[test]
+fn drf_user_viewset_is_admin_only() {
+    let mut r = Recipe::defaults();
+    r.api_layer = ApiLayer::Drf;
+    let (_tmp, root) = render_recipe(&r);
+    let body = read(&root, "apps/api/viewsets.py");
+    assert!(
+        body.contains("permission_classes = [IsAdminUser]"),
+        "UserViewSet must be IsAdminUser (list/retrieve), not just IsAuthenticated"
+    );
+    assert!(
+        body.contains("url_path=\"me\"") && body.contains("IsAuthenticated"),
+        "the /me action must exist and be IsAuthenticated (not IsAdminUser)"
+    );
+}
+
+#[test]
+fn mfa_middleware_wired_in_settings() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let base = read(&root, "config/settings/base.py");
+    assert!(
+        base.contains("apps.users.middleware.RequireMfaForStaffMiddleware"),
+        "MFA-for-staff middleware must be wired in MIDDLEWARE"
+    );
+    assert!(
+        base.contains("STAFF_MFA_REQUIRED"),
+        "STAFF_MFA_REQUIRED setting must be exposed for env override"
+    );
+    // And the middleware file itself must exist.
+    assert_present(&root, "apps/users/middleware.py");
+    let mw = read(&root, "apps/users/middleware.py");
+    assert!(
+        mw.contains("is_mfa_enabled") && mw.contains("redirect(\"mfa_activate_totp\")"),
+        "middleware must check is_mfa_enabled and redirect to enrollment"
+    );
+
+    // Test settings disable enforcement so factories can log in as staff in tests.
+    let test_settings = read(&root, "config/settings/test.py");
+    assert!(
+        test_settings.contains("STAFF_MFA_REQUIRED = False"),
+        "test settings must disable the MFA gate"
+    );
+}
+
+#[test]
+fn malicious_recipe_slug_with_traversal_is_rejected_by_validator() {
+    // Validator gate — first line of defense.
+    let mut r = Recipe::defaults();
+    r.project_slug = "../etc/passwd".into();
+    assert!(r.validate().is_err(), "validator must reject path-traversal in slug");
+}
+
+#[test]
 fn force_overwrites_existing_directory() {
     let tmp = TempDir::new().unwrap();
     let recipe = Recipe::defaults();

@@ -1,10 +1,16 @@
-"""DRF viewsets."""
+"""DRF viewsets.
+
+Authorization model (OWASP API1:2023 / BOLA defense):
+- `/users/me/` returns the calling user's own record.
+- `/users/` (list) and `/users/{id}/` (retrieve) are gated by `IsAdminUser`. No
+  unprivileged session can enumerate or fetch other users.
+"""
 
 from __future__ import annotations
 
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.api.serializers import UserSerializer
@@ -16,10 +22,20 @@ class UserViewSet(
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
 ):
+    """Staff-only — list/retrieve all users.
+
+    Non-staff callers use `/users/me/` instead.
+    """
+
     queryset = User.objects.all().order_by("id")
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
 
-    @action(detail=False, methods=["get"])
+    @action(
+        detail=False,
+        methods=["get"],
+        url_path="me",
+        permission_classes=[IsAuthenticated],
+    )
     def me(self, request) -> Response:
         return Response(self.serializer_class(request.user).data)

@@ -1,0 +1,83 @@
+"""Security middleware that enforces MFA for staff/superuser accounts.
+
+Wired in `config/settings/base.py` after `AuthenticationMiddleware`. Toggle off by setting
+`STAFF_MFA_REQUIRED = False` in settings (NOT recommended for production).
+
+Rationale: django-allauth gives us MFA primitives (TOTP + recovery codes) but does NOT
+gate `is_staff` access on enrollment. Without this middleware, password-only login is
+sufficient to reach `/admin/` — the highest-impact surface in a Django app.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
+
+from django.conf import settings
+from django.contrib import messages
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import redirect
+from django.urls import resolve
+
+
+def _is_mfa_enrolled(user: Any) -> bool:
+    """Return True if the user has at least one active MFA authenticator."""
+    try:
+        from allauth.mfa.adapter import get_adapter
+
+        return get_adapter().is_mfa_enabled(user)
+    except Exception:  # pragma: no cover  -- defensive; allauth always available in prod
+        return False
+
+
+# URLs the unenrolled staff user is allowed to reach so they can enroll or sign out.
+_ALLOWED_NAMES = frozenset(
+    {
+        "mfa_activate_totp",
+        "mfa_index",
+        "mfa_view_recovery_codes",
+        "mfa_generate_recovery_codes",
+        "mfa_download_recovery_codes",
+        "account_logout",
+        "account_email_verification_sent",
+        "account_confirm_email",
+    }
+)
+_ALLOWED_PREFIXES = ("/accounts/mfa/", "/accounts/logout/", "/static/", "/media/")
+
+
+class RequireMfaForStaffMiddleware:
+    """Redirect staff/superuser sessions to MFA enrollment until enrolled."""
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+        self.enabled = getattr(settings, "STAFF_MFA_REQUIRED", True)
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        if not self.enabled:
+            return self.get_response(request)
+
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return self.get_response(request)
+        if not (user.is_staff or user.is_superuser):
+            return self.get_response(request)
+        if _is_mfa_enrolled(user):
+            return self.get_response(request)
+
+        path = request.path
+        if any(path.startswith(p) for p in _ALLOWED_PREFIXES):
+            return self.get_response(request)
+        try:
+            name = resolve(path).url_name or ""
+        except Exception:  # pragma: no cover
+            name = ""
+        if name in _ALLOWED_NAMES:
+            return self.get_response(request)
+
+        messages.warning(
+            request,
+            "Multi-factor authentication is required for staff accounts. "
+            "Please enroll before accessing this resource.",
+        )
+        return redirect("mfa_activate_totp")

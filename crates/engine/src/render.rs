@@ -219,6 +219,7 @@ impl<'a> RenderWriter<'a> {
                 let rendered = strip_jinja_ext(&rendered);
                 let rel = rel_parent.join(&rendered);
                 let abs = self.target_root.join(&rel);
+                guard_path_within_root(&abs, self.target_root)?;
                 fs::create_dir_all(&abs).map_err(|source| Error::Io {
                     path: Some(abs.clone()),
                     source,
@@ -247,6 +248,7 @@ impl<'a> RenderWriter<'a> {
                 let final_name = strip_jinja_ext(&rendered_name);
                 let rel = rel_parent.join(final_name);
                 let abs = self.target_root.join(&rel);
+                guard_path_within_root(&abs, self.target_root)?;
                 if let Some(parent) = abs.parent() {
                     fs::create_dir_all(parent).map_err(|source| Error::Io {
                         path: Some(parent.to_path_buf()),
@@ -304,6 +306,48 @@ impl<'a> RenderWriter<'a> {
     }
 }
 
+/// Defense in depth against template-driven path traversal.
+///
+/// `Path::join` is permissive: passing an absolute path or one with `..` segments on the
+/// right-hand side can escape the supposed root. `project_slug` is already validated to
+/// `[A-Za-z0-9_]`, but a future template author who reaches for another recipe field in
+/// a path needs this guard so the worst case is a render error rather than an arbitrary
+/// file write. We normalize logically (resolving `..`) without touching the filesystem,
+/// then require the result to remain under `root`.
+fn guard_path_within_root(candidate: &Path, root: &Path) -> Result<()> {
+    use std::path::Component;
+
+    let mut normalized: Vec<Component<'_>> = Vec::new();
+    for comp in candidate.components() {
+        match comp {
+            Component::ParentDir => {
+                let popped = normalized.pop();
+                if popped.is_none()
+                    || matches!(popped, Some(Component::RootDir) | Some(Component::Prefix(_)))
+                {
+                    return Err(Error::InvalidRecipe(format!(
+                        "rendered path {} attempts to escape the target directory",
+                        candidate.display()
+                    )));
+                }
+            }
+            Component::CurDir => {} // skip `.`
+            other => normalized.push(other),
+        }
+    }
+
+    let resolved: std::path::PathBuf = normalized.iter().collect();
+    let canon_root: std::path::PathBuf = root.components().collect();
+    if !resolved.starts_with(&canon_root) {
+        return Err(Error::InvalidRecipe(format!(
+            "rendered path {} resolves outside the target {}",
+            resolved.display(),
+            canon_root.display()
+        )));
+    }
+    Ok(())
+}
+
 fn strip_jinja_ext(name: &str) -> String {
     let s = name.strip_suffix(".j2").unwrap_or(name);
     // Dotfile-shadow convention: a leading `_dot_` in a templated filename becomes
@@ -328,4 +372,33 @@ fn static_skip_re() -> &'static Regex {
     use std::sync::OnceLock;
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| Regex::new(r"(?m)^\s*__SKIP__\s*\n?").unwrap())
+}
+
+#[cfg(test)]
+mod path_guard_tests {
+    use std::path::Path;
+
+    use super::*;
+
+    #[test]
+    fn allows_paths_inside_root() {
+        let root = Path::new("/tmp/proj");
+        assert!(guard_path_within_root(Path::new("/tmp/proj/a/b.py"), root).is_ok());
+        assert!(guard_path_within_root(Path::new("/tmp/proj/a/./b"), root).is_ok());
+        assert!(guard_path_within_root(Path::new("/tmp/proj/a/x/../b"), root).is_ok());
+    }
+
+    #[test]
+    fn rejects_dotdot_escaping_root() {
+        let root = Path::new("/tmp/proj");
+        assert!(guard_path_within_root(Path::new("/tmp/proj/../etc/passwd"), root).is_err());
+        assert!(guard_path_within_root(Path::new("/tmp/proj/a/../../etc"), root).is_err());
+    }
+
+    #[test]
+    fn rejects_absolute_path_outside_root() {
+        let root = Path::new("/tmp/proj");
+        assert!(guard_path_within_root(Path::new("/etc/passwd"), root).is_err());
+        assert!(guard_path_within_root(Path::new("/tmp/other"), root).is_err());
+    }
 }

@@ -1,4 +1,14 @@
-"""Django Ninja API — async-first, OpenAPI 3.1, Pydantic 2."""
+"""Django Ninja API — async-first, OpenAPI 3.1, Pydantic 2.
+
+Authorization model (OWASP API1:2023 / BOLA defense):
+- `/me` returns ONLY the calling user's own record.
+- `/users` and `/users/{id}` are staff-only. There is no endpoint that lets a
+  non-staff session enumerate or retrieve other users.
+
+To open a user record to non-staff callers, add a deliberate, narrowly scoped
+endpoint (e.g. a public profile slug → display name + avatar) — never echo the
+full `User` row.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +16,8 @@ from typing import List
 
 from django.shortcuts import aget_object_or_404
 from ninja import NinjaAPI, Schema
-from ninja.security import django_auth
 from ninja.errors import HttpError
+from ninja.security import django_auth
 
 from apps.users.models import User
 
@@ -22,10 +32,11 @@ api = NinjaAPI(
 )
 
 
-class UserOut(Schema):
-    id: int
-    email: str
-    full_name: str
+def _require_staff(request) -> None:
+    """Hard gate — every staff-only endpoint must call this first."""
+    user = getattr(request, "user", None)
+    if user is None or not user.is_authenticated or not user.is_staff:
+        raise HttpError(403, "staff privileges required")
 
 
 class MeOut(Schema):
@@ -35,26 +46,66 @@ class MeOut(Schema):
     is_staff: bool
 
 
+class StaffUserOut(Schema):
+    id: int
+    email: str
+    full_name: str
+    is_active: bool
+    is_staff: bool
+    date_joined: str
+
+
 @api.get("/health", auth=None, tags=["health"], summary="Liveness probe")
 def health(request) -> dict[str, str]:
     return {"status": "ok"}
 
 
-@api.get("/me", response=MeOut, tags=["users"], summary="Current user")
+@api.get("/me", response=MeOut, tags=["users"], summary="The calling user")
 async def me(request) -> MeOut:
     user = await User.objects.aget(pk=request.user.pk)
     return MeOut(id=user.pk, email=user.email, full_name=user.full_name, is_staff=user.is_staff)
 
 
-@api.get("/users", response=List[UserOut], tags=["users"], summary="List users")
-async def list_users(request, limit: int = 50, offset: int = 0) -> list[UserOut]:
-    if limit > 200:
-        raise HttpError(400, "limit cannot exceed 200")
+@api.get(
+    "/users",
+    response=List[StaffUserOut],
+    tags=["users", "staff"],
+    summary="List users (staff only)",
+)
+async def list_users(request, limit: int = 50, offset: int = 0) -> list[StaffUserOut]:
+    _require_staff(request)
+    if limit < 1 or limit > 200:
+        raise HttpError(400, "limit must be in [1, 200]")
+    if offset < 0:
+        raise HttpError(400, "offset must be >= 0")
     qs = User.objects.all().order_by("id")[offset : offset + limit]
-    return [UserOut(id=u.pk, email=u.email, full_name=u.full_name) async for u in qs]
+    return [
+        StaffUserOut(
+            id=u.pk,
+            email=u.email,
+            full_name=u.full_name,
+            is_active=u.is_active,
+            is_staff=u.is_staff,
+            date_joined=u.date_joined.isoformat(),
+        )
+        async for u in qs
+    ]
 
 
-@api.get("/users/{user_id}", response=UserOut, tags=["users"])
-async def get_user(request, user_id: int) -> UserOut:
+@api.get(
+    "/users/{user_id}",
+    response=StaffUserOut,
+    tags=["users", "staff"],
+    summary="Get a user (staff only)",
+)
+async def get_user(request, user_id: int) -> StaffUserOut:
+    _require_staff(request)
     u = await aget_object_or_404(User, pk=user_id)
-    return UserOut(id=u.pk, email=u.email, full_name=u.full_name)
+    return StaffUserOut(
+        id=u.pk,
+        email=u.email,
+        full_name=u.full_name,
+        is_active=u.is_active,
+        is_staff=u.is_staff,
+        date_joined=u.date_joined.isoformat(),
+    )
