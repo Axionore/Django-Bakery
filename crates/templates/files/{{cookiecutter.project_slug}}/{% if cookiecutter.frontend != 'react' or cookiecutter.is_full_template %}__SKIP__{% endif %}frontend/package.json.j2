@@ -13,16 +13,16 @@
     "lint": "eslint . --max-warnings=0"
   },
   "dependencies": {
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react": "^{{ bakery.versions.react }}",
+    "react-dom": "^{{ bakery.versions['react-dom'] }}"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.0",
-    "vite": "^8.0.0",
-    "typescript": "^6.0.2",
-    "eslint": "^9.39.0",
+    "@vitejs/plugin-react": "^{{ bakery.versions['@vitejs/plugin-react'] }}",
+    "vite": "^{{ bakery.versions.vite }}",
+    "typescript": "^{{ bakery.versions.typescript }}",
+    "eslint": "^{{ bakery.versions.eslint }}",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",
     "eslint-plugin-react": "^7.37.2",

@@ -13,13 +13,13 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "nuxt": "^4.4.0",
-    "vue": "^3.5.0",
-    "vue-router": "^4.5.0"
+    "nuxt": "^{{ bakery.versions.nuxt }}",
+    "vue": "^{{ bakery.versions.vue }}",
+    "vue-router": "^{{ bakery.versions['vue-router'] }}"
   },
   "devDependencies": {
-    "typescript": "^6.0.2",
-    "@nuxt/eslint": "^1.0.0",
-    "eslint": "^9.39.0"
+    "typescript": "^{{ bakery.versions.typescript }}",
+    "@nuxt/eslint": "^{{ bakery.versions['@nuxt/eslint'] }}",
+    "eslint": "^{{ bakery.versions.eslint }}"
   }
 }

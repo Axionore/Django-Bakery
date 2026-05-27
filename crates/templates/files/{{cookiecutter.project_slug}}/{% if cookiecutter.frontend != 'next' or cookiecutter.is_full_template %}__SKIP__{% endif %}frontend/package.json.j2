@@ -13,16 +13,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "^16.0.0",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "next": "^{{ bakery.versions.next }}",
+    "react": "^{{ bakery.versions.react }}",
+    "react-dom": "^{{ bakery.versions['react-dom'] }}"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "typescript": "^6.0.2",
-    "eslint": "^9.39.0",
-    "eslint-config-next": "^16.0.0"
+    "typescript": "^{{ bakery.versions.typescript }}",
+    "eslint": "^{{ bakery.versions.eslint }}",
+    "eslint-config-next": "^{{ bakery.versions['eslint-config-next'] }}"
   }
 }
