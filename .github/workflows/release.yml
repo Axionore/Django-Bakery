@@ -104,6 +104,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # OCI / Docker registry spec rejects uppercase characters in repository
+      # names. `${{ github.repository }}` preserves the literal case
+      # (`Axionore/Django-Barkery`), so we lowercase it once here and reuse the
+      # result for tagging + attestation. Using ${VAR,,} (bash 4 lowercase
+      # parameter expansion) keeps the substitution local to one step.
+      - name: Compute lowercase image name
+        id: img
+        run: |
+          repo='${{ github.repository }}'
+          echo "name=ghcr.io/${repo,,}" >> "$GITHUB_OUTPUT"
       - id: build-push
         uses: docker/build-push-action@v6
         with:
@@ -112,12 +122,12 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+            ${{ steps.img.outputs.name }}:latest
+            ${{ steps.img.outputs.name }}:${{ github.ref_name }}
       - name: Attest GHCR image
         uses: actions/attest-build-provenance@v2
         with:
-          subject-name: ghcr.io/${{ github.repository }}
+          subject-name: ${{ steps.img.outputs.name }}
           subject-digest: ${{ steps.build-push.outputs.digest }}
           push-to-registry: true
 
