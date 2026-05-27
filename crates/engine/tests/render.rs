@@ -1350,7 +1350,7 @@ fn multi_tenant_recipe_scaffolds_tenants_app_and_splits_installed_apps() {
     assert!(settings.contains("\"django_tenants\""));
     assert!(settings.contains("TENANT_MODEL = \"tenants.Tenant\""));
     assert!(settings.contains("django_tenants.postgresql_backend"));
-    assert!(settings.contains("django_tenants.routing.TenantSyncRouter"));
+    assert!(settings.contains("django_tenants.routers.TenantSyncRouter"));
     assert!(settings.contains("django_tenants.middleware.main.TenantMainMiddleware"));
 
     // pyproject pins django-tenants

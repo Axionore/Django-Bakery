@@ -65,7 +65,7 @@ DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 # django-tenants routes ORM queries to the per-tenant PG schema. Replace the
 # stock backend with django-tenants' subclass + route through TenantSyncRouter.
 DATABASES["default"]["ENGINE"] = "django_tenants.postgresql_backend"
-DATABASE_ROUTERS = ("django_tenants.routing.TenantSyncRouter",)
+DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 {%- endif %}
 {%- elif cookiecutter.is_sqlite %}
 DATABASES = {
