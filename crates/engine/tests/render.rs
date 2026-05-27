@@ -1326,6 +1326,61 @@ fn compose_only_setup_ships_compose_files_without_traefik() {
 }
 
 #[test]
+fn multi_tenant_recipe_scaffolds_tenants_app_and_splits_installed_apps() {
+    let mut r = Recipe::defaults();
+    r.project_slug = "mt_test".into();
+    r.multi_tenant = true;
+    let (_tmp, root) = render_recipe(&r);
+
+    // Tenants app shipped
+    assert_present(&root, "apps/tenants/__init__.py");
+    let models = read(&root, "apps/tenants/models.py");
+    assert!(models.contains("class Tenant(TenantMixin):"));
+    assert!(models.contains("class Domain(DomainMixin):"));
+    assert!(models.contains("auto_create_schema = True"));
+
+    // create_tenant + bootstrap_public_tenant mgmt commands
+    let bootstrap = read(&root, "apps/tenants/management/commands/bootstrap_public_tenant.py");
+    assert!(bootstrap.contains("schema_name=\"public\""));
+
+    // Settings: SHARED_APPS / TENANT_APPS / DATABASE_ROUTERS / TenantMainMiddleware
+    let settings = read(&root, "config/settings/base.py");
+    assert!(settings.contains("SHARED_APPS"));
+    assert!(settings.contains("TENANT_APPS"));
+    assert!(settings.contains("\"django_tenants\""));
+    assert!(settings.contains("TENANT_MODEL = \"tenants.Tenant\""));
+    assert!(settings.contains("django_tenants.postgresql_backend"));
+    assert!(settings.contains("django_tenants.routing.TenantSyncRouter"));
+    assert!(settings.contains("django_tenants.middleware.main.TenantMainMiddleware"));
+
+    // pyproject pins django-tenants
+    let pyproject = read(&root, "pyproject.toml");
+    assert!(pyproject.contains("django-tenants>="));
+
+    // Operator docs shipped
+    assert_present(&root, "docs/multi-tenancy.md");
+}
+
+#[test]
+fn multi_tenant_absent_when_disabled() {
+    let (_tmp, root) = render_recipe(&Recipe::defaults()); // multi_tenant=false
+    assert_absent(&root, "apps/tenants/models.py");
+    assert_absent(&root, "docs/multi-tenancy.md");
+    let settings = read(&root, "config/settings/base.py");
+    assert!(!settings.contains("SHARED_APPS"));
+    assert!(!settings.contains("TenantMainMiddleware"));
+}
+
+#[test]
+fn multi_tenant_rejects_non_postgres() {
+    let mut r = Recipe::defaults();
+    r.multi_tenant = true;
+    r.relational_db = django_bakery_engine::RelationalDb::Sqlite;
+    let err = r.validate().expect_err("multi_tenant + sqlite must be rejected");
+    assert!(err.contains("multi_tenant requires"));
+}
+
+#[test]
 fn production_dockerfile_meets_security_baseline() {
     let mut r = Recipe::defaults();
     r.project_slug = "docker_test".into();

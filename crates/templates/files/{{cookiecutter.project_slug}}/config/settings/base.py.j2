@@ -61,6 +61,12 @@ DATABASES = {
 }
 DATABASES["default"]["ATOMIC_REQUESTS"] = True
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
+{%- if cookiecutter.multi_tenant %}
+# django-tenants routes ORM queries to the per-tenant PG schema. Replace the
+# stock backend with django-tenants' subclass + route through TenantSyncRouter.
+DATABASES["default"]["ENGINE"] = "django_tenants.postgresql_backend"
+DATABASE_ROUTERS = ("django_tenants.routing.TenantSyncRouter",)
+{%- endif %}
 {%- elif cookiecutter.is_sqlite %}
 DATABASES = {
     "default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
@@ -129,7 +135,36 @@ LOCAL_APPS = [
 {%- endif %}
 ]
 
+{%- if cookiecutter.multi_tenant %}
+# Multi-tenant mode (django-tenants). Apps split into:
+#   SHARED_APPS — live in the `public` schema, accessible to all tenants
+#                 (auth, sessions, admin, tenants/domains lookup tables).
+#   TENANT_APPS — installed per-schema, your business models live here.
+# `django_tenants` must be FIRST in SHARED_APPS so its post_migrate signal
+# wins over Django's; `apps.tenants` must come next (the routing table).
+SHARED_APPS = [
+    "django_tenants",
+    "apps.tenants",
+] + DJANGO_APPS + THIRD_PARTY_APPS + [
+    "apps.users",
+    "apps.core",
+]
+TENANT_APPS = [
+    "django.contrib.contenttypes",
+{%- if cookiecutter.api_layer != 'none' %}
+    "apps.api",
+{%- endif %}
+{%- if cookiecutter.graph_db != 'none' %}
+    "apps.graph",
+{%- endif %}
+]
+# INSTALLED_APPS is the union — order matters; django-tenants first wins.
+INSTALLED_APPS = list({*SHARED_APPS, *TENANT_APPS})
+TENANT_MODEL = "tenants.Tenant"
+TENANT_DOMAIN_MODEL = "tenants.Domain"
+{%- else %}
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+{%- endif %}
 
 # ---------------------------------------------------------------------------
 # Auth
@@ -216,6 +251,12 @@ HEADLESS_TOKEN_STRATEGY = "allauth.headless.tokens.sessions.SessionTokenStrategy
 # Middleware (security-first)
 # ---------------------------------------------------------------------------
 MIDDLEWARE = [
+{%- if cookiecutter.multi_tenant %}
+    # Multi-tenant routing — MUST be first. Inspects request hostname, looks up
+    # the Domain → Tenant row, and sets `connection.schema_name` so every ORM
+    # query for the rest of the request runs against the tenant's PG schema.
+    "django_tenants.middleware.main.TenantMainMiddleware",
+{%- endif %}
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",

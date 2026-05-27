@@ -106,6 +106,7 @@ impl Context {
         m.insert("use_sentry".into(), json!(r.use_sentry));
         m.insert("use_observability".into(), json!(r.use_observability));
         m.insert("use_feature_flags".into(), json!(r.use_feature_flags));
+        m.insert("multi_tenant".into(), json!(r.multi_tenant));
         m.insert("type_checker".into(), json!(r.type_checker.as_str()));
         m.insert("use_pre_commit".into(), json!(r.use_pre_commit));
         m.insert("ci".into(), json!(r.ci.as_str()));

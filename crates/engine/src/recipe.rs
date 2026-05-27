@@ -48,6 +48,15 @@ pub struct Recipe {
     pub container_setup: ContainerSetup,
     pub version_control: VersionControl,
     pub timezone: String,
+
+    /// Multi-tenant mode — when `true`, scaffolds `django-tenants` with
+    /// PG-schema-per-tenant isolation, splits INSTALLED_APPS into
+    /// SHARED_APPS + TENANT_APPS, and adds an `apps/tenants/` app with
+    /// Tenant + Domain models and a `create_tenant` management command.
+    /// Forces `relational_db = postgres` (django-tenants is PG-only —
+    /// it uses native Postgres schemas).
+    #[serde(default)]
+    pub multi_tenant: bool,
 }
 
 impl Recipe {
@@ -89,6 +98,7 @@ impl Recipe {
             container_setup: ContainerSetup::ComposeTraefik,
             version_control: VersionControl::Git,
             timezone: "UTC".into(),
+            multi_tenant: false,
         }
     }
 
@@ -116,6 +126,12 @@ impl Recipe {
         }
         if !self.author_email.contains('@') {
             return Err("author_email must contain '@'".into());
+        }
+        if self.multi_tenant && !self.is_postgres() {
+            return Err(
+                "multi_tenant requires relational_db = 'postgres' (django-tenants is PG-only — \
+                 it uses native Postgres schemas for tenant isolation)".into(),
+            );
         }
         match self.frontend {
             Frontend::React

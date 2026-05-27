@@ -1,0 +1,57 @@
+"""Tenant + Domain models.
+
+`django-tenants` maps every tenant to a native PostgreSQL schema. The `Tenant`
+model lives in the **public** schema (shared across all tenants); the `Domain`
+model maps incoming hostnames to the right schema so the middleware can route
+each request to its tenant.
+
+Isolation model:
+  - Each tenant gets its own PG schema (`SET search_path TO <tenant_schema>`).
+  - `TENANT_APPS` (in settings) are installed per-schema; `SHARED_APPS` live
+    in `public`. Cross-tenant leakage is impossible at the database layer.
+
+Creating a tenant:
+  uv run python manage.py create_tenant --schema=acme --name="Acme Inc" \\
+      --paid-until=2027-01-01 --domain-domain=acme.{{ cookiecutter.domain_name }}
+"""
+
+from __future__ import annotations
+
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from django_tenants.models import DomainMixin, TenantMixin
+
+
+class Tenant(TenantMixin):
+    """One row per customer account. Each gets its own PG schema."""
+
+    name = models.CharField(_("name"), max_length=120)
+    paid_until = models.DateField(_("paid until"), null=True, blank=True)
+    on_trial = models.BooleanField(_("on trial"), default=True)
+    created_on = models.DateField(_("created on"), auto_now_add=True)
+
+    # `auto_create_schema = True` (default in django-tenants) calls
+    # `create_schema()` on first save, which runs the TENANT_APPS migrations
+    # against the new schema. Set to False if you want to defer schema
+    # creation (e.g. async provisioning queue).
+    auto_create_schema = True
+
+    class Meta:
+        verbose_name = _("tenant")
+        verbose_name_plural = _("tenants")
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Domain(DomainMixin):
+    """Hostname → tenant routing.
+
+    Multiple domains can point at the same tenant (custom domains + the
+    default {schema}.{{ cookiecutter.domain_name }} subdomain).
+    Exactly one Domain per tenant must have `is_primary=True`.
+    """
+
+    class Meta:
+        verbose_name = _("domain")
+        verbose_name_plural = _("domains")

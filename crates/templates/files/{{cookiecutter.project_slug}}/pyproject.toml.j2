@@ -56,6 +56,11 @@ dependencies = [
 {%- if cookiecutter.is_postgres %}
     # --- database (PostgreSQL) ---
     "psycopg[binary,pool]>={{ bakery.versions.psycopg }}",
+{%- if cookiecutter.multi_tenant %}
+    # --- multi-tenancy ---
+    # django-tenants gives PG-schema-per-tenant isolation. See docs/multi-tenancy.md.
+    "django-tenants>={{ bakery.versions['django-tenants'] }}",
+{%- endif %}
 {%- elif cookiecutter.is_mysqlish %}
     # PyMySQL — pure-Python MySQL/MariaDB driver. No `libmariadb-dev` build
     # dependency, works on any dev machine. Aliased to `MySQLdb` via the shim

@@ -114,6 +114,9 @@ fn relevant_packages(r: &Recipe) -> Wanted {
     if r.is_postgres() {
         pypi.push("psycopg");
     }
+    if r.multi_tenant {
+        pypi.push("django-tenants");
+    }
 
     let mut npm = Vec::<&'static str>::new();
     match r.frontend {
@@ -379,6 +382,7 @@ fn defaults() -> VersionMap {
         ("py.psycopg", "3.2.4"),
         ("py.pymysql", "1.1.0"),
         ("py.pydantic", "2.10.0"),
+        ("py.django-tenants", "3.10.1"),
         // --- Frontend ecosystem ---
         ("npm.react", "19.2.5"),
         ("npm.react-dom", "19.2.5"),

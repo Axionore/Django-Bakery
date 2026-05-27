@@ -181,6 +181,17 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
     let use_feature_flags = Confirm::new("Add django-waffle feature flags?")
         .with_default(defaults.use_feature_flags)
         .prompt()?;
+    let multi_tenant = if matches!(relational_db, RelationalDb::Postgres) {
+        Confirm::new("Multi-tenant via django-tenants (PG-schema-per-tenant)?")
+            .with_default(defaults.multi_tenant)
+            .with_help_message(
+                "Adds an `apps/tenants/` app with Tenant + Domain models, a `create_tenant` \
+                 management command, and splits INSTALLED_APPS into SHARED_APPS + TENANT_APPS.",
+            )
+            .prompt()?
+    } else {
+        false
+    };
     let type_checker = pick(
         "Type checker",
         typecheck_options(),
@@ -243,6 +254,7 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         container_setup,
         version_control,
         timezone,
+        multi_tenant,
     })
 }
 
