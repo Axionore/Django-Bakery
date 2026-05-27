@@ -317,3 +317,92 @@ str_enum! {
         None => "none",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_are_valid() {
+        Recipe::defaults().validate().expect("defaults must validate");
+    }
+
+    #[test]
+    fn validate_rejects_bad_slug_start() {
+        let mut r = Recipe::defaults();
+        r.project_slug = "9bad".into();
+        assert!(r.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_slug_with_dash() {
+        let mut r = Recipe::defaults();
+        r.project_slug = "has-dash".into();
+        assert!(r.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_empty_slug() {
+        let mut r = Recipe::defaults();
+        r.project_slug = "".into();
+        assert!(r.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_email_without_at() {
+        let mut r = Recipe::defaults();
+        r.author_email = "no-at-sign".into();
+        assert!(r.validate().is_err());
+    }
+
+    #[test]
+    fn validate_requires_radix_flavor_when_react() {
+        let mut r = Recipe::defaults();
+        r.frontend = Frontend::React;
+        r.radix_flavor = None;
+        assert!(r.validate().is_err());
+
+        r.radix_flavor = Some(RadixFlavor::Themes);
+        assert!(r.validate().is_ok());
+    }
+
+    #[test]
+    fn toml_roundtrip_preserves_human_strings() {
+        let r = Recipe::defaults();
+        let s = toml::to_string(&r).expect("serialize");
+        // Enum values are rendered as their human-friendly strings, not their variant idents.
+        assert!(s.contains("django_version = \"6.0\""));
+        assert!(s.contains("license = \"mit\""));
+        assert!(s.contains("api_layer = \"ninja\""));
+
+        let back: Recipe = toml::from_str(&s).expect("deserialize");
+        assert_eq!(back.django_version, DjangoVersion::Dj60);
+        assert_eq!(back.license, License::Mit);
+        assert_eq!(back.api_layer, ApiLayer::Ninja);
+        assert_eq!(back.relational_db, r.relational_db);
+        assert_eq!(back.project_slug, r.project_slug);
+    }
+
+    #[test]
+    fn db_helpers_match_recipe() {
+        let mut r = Recipe::defaults();
+        r.relational_db = RelationalDb::Postgres;
+        assert!(r.is_postgres());
+        assert!(!r.is_sqlite());
+        assert!(!r.is_mysqlish());
+
+        r.relational_db = RelationalDb::Sqlite;
+        assert!(r.is_sqlite());
+        assert!(!r.is_postgres());
+
+        r.relational_db = RelationalDb::Mariadb;
+        assert!(r.is_mysqlish());
+    }
+
+    #[test]
+    fn python_version_helpers() {
+        assert_eq!(PythonVersion::Py314.dotted(), "3.14");
+        assert_eq!(PythonVersion::Py314.short(), "314");
+        assert_eq!(PythonVersion::Py313.short(), "313");
+    }
+}

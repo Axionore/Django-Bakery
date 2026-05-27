@@ -225,6 +225,86 @@ fn current_year() -> i32 {
     1970 + (days as f64 / 365.2425) as i32
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::recipe::{
+        ApiLayer, ContainerSetup, Frontend, RelationalDb,
+    };
+
+    #[test]
+    fn cookiecutter_block_exposes_computed_booleans() {
+        let r = Recipe::defaults();
+        let block = Context::cookiecutter_block(&r);
+        assert_eq!(block.get("is_postgres"), Some(&serde_json::json!(true)));
+        assert_eq!(block.get("is_sqlite"), Some(&serde_json::json!(false)));
+        assert_eq!(block.get("has_api"), Some(&serde_json::json!(true)));
+        assert_eq!(block.get("wants_docker"), Some(&serde_json::json!(true)));
+        assert_eq!(block.get("wants_traefik"), Some(&serde_json::json!(true)));
+        assert_eq!(block.get("has_frontend_spa"), Some(&serde_json::json!(false)));
+    }
+
+    #[test]
+    fn cookiecutter_block_flips_booleans_on_minimal_recipe() {
+        let mut r = Recipe::defaults();
+        r.relational_db = RelationalDb::Sqlite;
+        r.api_layer = ApiLayer::None;
+        r.frontend = Frontend::None;
+        r.container_setup = ContainerSetup::None;
+        let block = Context::cookiecutter_block(&r);
+        assert_eq!(block.get("is_postgres"), Some(&serde_json::json!(false)));
+        assert_eq!(block.get("is_sqlite"), Some(&serde_json::json!(true)));
+        assert_eq!(block.get("has_api"), Some(&serde_json::json!(false)));
+        assert_eq!(block.get("wants_docker"), Some(&serde_json::json!(false)));
+        assert_eq!(block.get("wants_traefik"), Some(&serde_json::json!(false)));
+    }
+
+    #[test]
+    fn bakery_block_includes_secret_key_and_year() {
+        let r = Recipe::defaults();
+        let block = Context::bakery_block(&r);
+        let key = block.get("django_secret_key").and_then(|v| v.as_str()).unwrap();
+        assert_eq!(key.len(), 50);
+        let pg = block.get("postgres_password").and_then(|v| v.as_str()).unwrap();
+        assert_eq!(pg.len(), 40);
+        let year = block.get("year").and_then(|v| v.as_i64()).unwrap();
+        assert!(year >= 2024 && year <= 2100, "year sanity check: {year}");
+    }
+
+    #[test]
+    fn cookiecutter_block_exposes_slug_variants() {
+        let mut r = Recipe::defaults();
+        r.project_slug = "my_cool_app".into();
+        let block = Context::cookiecutter_block(&r);
+        assert_eq!(
+            block.get("project_module").and_then(|v| v.as_str()),
+            Some("my_cool_app")
+        );
+        assert_eq!(
+            block.get("project_kebab").and_then(|v| v.as_str()),
+            Some("my-cool-app")
+        );
+        assert_eq!(
+            block.get("project_camel").and_then(|v| v.as_str()),
+            Some("MyCoolApp")
+        );
+        assert_eq!(
+            block.get("project_shouty").and_then(|v| v.as_str()),
+            Some("MY_COOL_APP")
+        );
+    }
+
+    #[test]
+    fn secret_key_alphabet_is_well_formed() {
+        let key = secret_key(64);
+        assert_eq!(key.len(), 64);
+        assert!(
+            key.chars().all(|c| c.is_ascii_graphic()),
+            "secret_key must use only printable ASCII; got {key:?}"
+        );
+    }
+}
+
 /// Generate a Django-compatible secret key of `len` URL-safe characters.
 ///
 /// Uses a ChaCha20-based CSPRNG seeded from OS entropy. Output is suitable for
