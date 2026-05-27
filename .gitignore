@@ -42,3 +42,10 @@ Thumbs.db
 # we ship. Un-ignore everything under crates/templates/files/.
 !crates/templates/files/**
 !crates/templates/files/**/.*
+
+# e2e test artifacts (kept locally only)
+/e2e/scratch/
+/e2e/logs/
+
+# Playwright MCP transient artefacts (console logs, snapshots)
+/.playwright-mcp/
