@@ -65,6 +65,24 @@ AWS_S3_REGION_NAME=us-east-1
 {%- if cookiecutter.prod_email == 'anymail-mailgun' %}
 MAILGUN_API_KEY=
 MAILGUN_DOMAIN={{ cookiecutter.domain_name }}
+{%- elif cookiecutter.prod_email == 'anymail-ses' %}
+# AWS SES uses the standard AWS credential chain (env / instance role / SSO).
+# Set AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY here ONLY if you cannot use
+# an IAM role at runtime. AWS_SES_REGION_NAME selects the SES endpoint.
+AWS_SES_REGION_NAME=us-east-1
+{%- elif cookiecutter.prod_email == 'anymail-sendgrid' %}
+SENDGRID_API_KEY=
+{%- elif cookiecutter.prod_email == 'anymail-mailjet' %}
+MAILJET_API_KEY=
+MAILJET_SECRET_KEY=
+{%- elif cookiecutter.prod_email == 'anymail-mandrill' %}
+MANDRILL_API_KEY=
+{%- elif cookiecutter.prod_email == 'anymail-postmark' %}
+POSTMARK_SERVER_TOKEN=
+{%- elif cookiecutter.prod_email == 'anymail-brevo' %}
+BREVO_API_KEY=
+{%- elif cookiecutter.prod_email == 'anymail-sparkpost' %}
+SPARKPOST_API_KEY=
 {%- endif %}
 {%- if cookiecutter.use_sentry %}
 SENTRY_DSN=

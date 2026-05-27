@@ -42,11 +42,21 @@ shell:
 
 # --- i18n -----------------------------------------------------------------
 # Extract all `gettext`-marked strings from .py + Django templates into a
-# `.po` per locale under `locale/<lang>/LC_MESSAGES/django.po`. The first
-# `--locale=` arg defines the language to extract for; defaults to French.
+# `.po` per locale under `locale/<lang>/LC_MESSAGES/django.po`. Accepts any
+# number of locale codes; defaults to French when called with no args.
+# `manage.py makemessages` only accepts ONE locale per `--locale` flag, so
+# multi-locale invocations need a loop rather than `--locale fr de es`.
 makemessages *locales:
-    uv run python manage.py makemessages --locale {{'{{locales}}'}} || \
+    #!/usr/bin/env bash
+    set -euo pipefail
+    locales="{{'{{locales}}'}}"
+    if [[ -z "$locales" ]]; then
         uv run python manage.py makemessages --locale fr
+    else
+        for l in $locales; do
+            uv run python manage.py makemessages --locale "$l"
+        done
+    fi
 
 # Compile the `.po` files into the binary `.mo` form Django serves at runtime.
 compilemessages:
