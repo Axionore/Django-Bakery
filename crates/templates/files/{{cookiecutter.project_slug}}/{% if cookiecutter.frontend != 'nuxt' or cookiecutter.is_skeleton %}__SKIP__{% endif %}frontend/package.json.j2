@@ -20,28 +20,28 @@
     "openapi:gen": "openapi-typescript http://localhost:8000/api/openapi.json -o app/types/api-schema.d.ts"{% endif %}
   },
   "dependencies": {
-    "nuxt": "^4.4.0",
-    "vue": "^3.5.0",
-    "vue-router": "^4.5.0",
-    "@pinia/nuxt": "^0.11.0",
-    "pinia": "^3.0.0",
-    "tailwindcss": "^4.3.0",
-    "@tailwindcss/vite": "^4.3.0",
-    "@vueuse/nuxt": "^14.0.0",
-    "zod": "^4.4.0"{% if cookiecutter.use_sentry %},
+    "nuxt": "^{{ bakery.versions.nuxt }}",
+    "vue": "^{{ bakery.versions.vue }}",
+    "vue-router": "^{{ bakery.versions['vue-router'] }}",
+    "@pinia/nuxt": "^{{ bakery.versions['@pinia/nuxt'] }}",
+    "pinia": "^{{ bakery.versions.pinia }}",
+    "tailwindcss": "^{{ bakery.versions.tailwindcss }}",
+    "@tailwindcss/vite": "^{{ bakery.versions['@tailwindcss/vite'] }}",
+    "@vueuse/nuxt": "^{{ bakery.versions['@vueuse/nuxt'] }}",
+    "zod": "^{{ bakery.versions.zod }}"{% if cookiecutter.use_sentry %},
     "@sentry/nuxt": "^9.0.0"{% endif %}
   },
   "devDependencies": {
-    "@nuxt/eslint": "^1.15.0",
-    "@nuxt/test-utils": "^4.0.0",
-    "@vue/test-utils": "^2.4.0",
-    "typescript": "^6.0.2",
-    "eslint": "^10.0.0",
-    "prettier": "^3.8.1",
-    "vitest": "^4.1.0",
-    "@vitest/coverage-v8": "^4.1.0",
-    "happy-dom": "^20.0.0",
-    "@playwright/test": "^1.50.0"{% if cookiecutter.has_typed_api %},
-    "openapi-typescript": "^7.4.4"{% endif %}
+    "@nuxt/eslint": "^{{ bakery.versions['@nuxt/eslint'] }}",
+    "@nuxt/test-utils": "^{{ bakery.versions['@nuxt/test-utils'] }}",
+    "@vue/test-utils": "^{{ bakery.versions['@vue/test-utils'] }}",
+    "typescript": "^{{ bakery.versions.typescript }}",
+    "eslint": "^{{ bakery.versions.eslint }}",
+    "prettier": "^{{ bakery.versions.prettier }}",
+    "vitest": "^{{ bakery.versions.vitest }}",
+    "@vitest/coverage-v8": "^{{ bakery.versions['@vitest/coverage-v8'] }}",
+    "happy-dom": "^{{ bakery.versions['happy-dom'] }}",
+    "@playwright/test": "^{{ bakery.versions['@playwright/test'] }}"{% if cookiecutter.has_typed_api %},
+    "openapi-typescript": "^{{ bakery.versions['openapi-typescript'] }}"{% endif %}
   }
 }

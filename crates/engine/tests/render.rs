@@ -1378,6 +1378,68 @@ fn no_container_setup_ships_no_compose_files() {
 }
 
 #[test]
+fn frontend_package_json_versions_come_from_resolver_not_literals() {
+    // The four SPA Full package.json templates were refactored to look up
+    // their npm dep versions via `{{ bakery.versions.<pkg> }}` instead of
+    // hardcoded `^X.Y.Z` strings. This pins the wiring: the rendered
+    // package.json values must match the resolver's bundled defaults.
+    use std::path::Path;
+    fn assert_versions_match_resolver(root: &Path, pkg_rel: &str, npm_pkgs: &[&str]) {
+        let raw = read(root, pkg_rel);
+        let pkg: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+        let deps = pkg.get("dependencies").and_then(|v| v.as_object());
+        let dev_deps = pkg.get("devDependencies").and_then(|v| v.as_object());
+        for name in npm_pkgs {
+            let val = deps
+                .and_then(|m| m.get(*name))
+                .or_else(|| dev_deps.and_then(|m| m.get(*name)))
+                .and_then(|v| v.as_str())
+                .unwrap_or_else(|| panic!("{pkg_rel}: missing dep {name}"));
+            assert!(
+                val.starts_with('^') && val.len() > 1 && val[1..].chars().next().unwrap().is_ascii_digit(),
+                "{pkg_rel}: {name} = {val:?} — must be a `^X.Y.Z` form from the resolver"
+            );
+            // Sanity: the value must not be a Jinja expression that failed
+            // to render (a missing `bakery.versions.X` lookup renders to
+            // empty / "undefined" in minijinja unless `default(...)` is used).
+            assert!(!val.contains('{') && !val.contains('}'), "{pkg_rel}: {name} = {val:?} — Jinja did not render");
+        }
+    }
+
+    // React Full
+    let (_tmp, r) = render_recipe(&react_recipe());
+    assert_versions_match_resolver(&r, "frontend/package.json", &[
+        "react", "react-dom", "react-router", "@radix-ui/themes",
+        "@radix-ui/colors", "@tanstack/react-query", "zod",
+        "vite", "vitest", "@vitejs/plugin-react", "@vitest/coverage-v8",
+        "eslint", "typescript",
+    ]);
+
+    // Nuxt Full
+    let (_tmp, r) = render_recipe(&nuxt_full_recipe());
+    assert_versions_match_resolver(&r, "frontend/package.json", &[
+        "nuxt", "vue", "vue-router", "pinia", "@pinia/nuxt",
+        "tailwindcss", "@tailwindcss/vite", "@vueuse/nuxt",
+        "vitest", "@vitest/coverage-v8", "@nuxt/test-utils",
+    ]);
+
+    // Vue Full
+    let (_tmp, r) = render_recipe(&vue_full_recipe());
+    assert_versions_match_resolver(&r, "frontend/package.json", &[
+        "vue", "vue-router", "pinia", "@vueuse/core",
+        "vite", "vitest", "@vitejs/plugin-vue", "tailwindcss",
+    ]);
+
+    // Next Full
+    let (_tmp, r) = render_recipe(&next_full_recipe());
+    assert_versions_match_resolver(&r, "frontend/package.json", &[
+        "next", "react", "react-dom", "@radix-ui/themes",
+        "@tanstack/react-query", "zod",
+        "vitest", "@vitest/coverage-v8", "eslint-config-next",
+    ]);
+}
+
+#[test]
 fn ci_workflow_absent_when_provider_is_none() {
     let mut r = Recipe::defaults();
     r.project_slug = "no_ci".into();
