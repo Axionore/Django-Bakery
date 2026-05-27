@@ -1,0 +1,222 @@
+[project]
+name = "{{ cookiecutter.project_slug | replace('_', '-') }}"
+version = "0.1.0"
+description = "{{ cookiecutter.description }}"
+readme = "README.md"
+requires-python = ">={{ cookiecutter.python_version }}"
+authors = [{ name = "{{ cookiecutter.author_name }}", email = "{{ cookiecutter.author_email }}" }]
+license = { text = "{% if cookiecutter.license == 'mit' %}MIT{% elif cookiecutter.license == 'apache-2' %}Apache-2.0{% elif cookiecutter.license == 'bsd-3' %}BSD-3-Clause{% else %}Proprietary{% endif %}" }
+keywords = ["django", "{{ cookiecutter.project_slug }}"]
+classifiers = [
+    "Framework :: Django",
+    "Framework :: Django :: {{ cookiecutter.django_version }}",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: {{ cookiecutter.python_version }}",
+]
+
+dependencies = [
+    # --- core ---
+    "Django>={{ cookiecutter.django_version }},<7.0",
+    "django-environ>=0.12",
+    "django-allauth[mfa,socialaccount]>=65.4",
+    "django-csp>=4.0",
+    "django-cors-headers>=4.6",
+    "django-ratelimit>=4.1",
+    "django-extensions>=4.0",
+    "argon2-cffi>=23.1",
+    "Pillow>=11.1",
+    "whitenoise[brotli]>=6.8",
+    # --- runtime ---
+    "gunicorn>=23.0",
+    "uvicorn[standard]>=0.35",
+    "asgiref>=3.8",
+    # --- structured logging ---
+{%- if cookiecutter.use_observability %}
+    "structlog>=25.1",
+    "django-structlog>=9.0",
+    "opentelemetry-api>=1.30",
+    "opentelemetry-sdk>=1.30",
+    "opentelemetry-instrumentation-django>=0.51b0",
+    "opentelemetry-instrumentation-psycopg>=0.51b0",
+    "opentelemetry-exporter-otlp>=1.30",
+{%- endif %}
+{%- if cookiecutter.use_sentry %}
+    "sentry-sdk[django]>=2.20",
+{%- endif %}
+{%- if cookiecutter.use_feature_flags %}
+    "django-waffle>=4.2",
+{%- endif %}
+{%- if cookiecutter.is_postgres %}
+    # --- database (PostgreSQL) ---
+    "psycopg[binary,pool]>=3.2",
+{%- elif cookiecutter.is_mysqlish %}
+    "mysqlclient>=2.2",
+{%- endif %}
+{%- if cookiecutter.use_celery %}
+    # --- celery ---
+    "celery[redis]>=5.5",
+    "django-celery-beat>=2.7",
+    "django-celery-results>=2.6",
+    "flower>=2.0",
+    {%- if cookiecutter.celery_broker == 'redis' %}
+    "redis>=5.2",
+    {%- else %}
+    "kombu[librabbitmq]>=5.4",
+    {%- endif %}
+{%- endif %}
+{%- if cookiecutter.api_layer == 'ninja' %}
+    # --- API: Django Ninja ---
+    "django-ninja>=1.4",
+    "pydantic>=2.10",
+{%- elif cookiecutter.api_layer == 'drf' %}
+    "djangorestframework>=3.16",
+    "drf-spectacular>=0.28",
+    "django-filter>=24.3",
+{%- elif cookiecutter.api_layer == 'graphql-strawberry' %}
+    "strawberry-graphql[django]>=0.270",
+{%- elif cookiecutter.api_layer == 'graphql-graphene' %}
+    "graphene-django>=3.2",
+{%- endif %}
+{%- if cookiecutter.prod_email != 'console' and cookiecutter.prod_email != 'smtp' %}
+    # --- email ---
+    "django-anymail>={% if cookiecutter.prod_email == 'anymail-mailgun' %}11.1[mailgun]{% elif cookiecutter.prod_email == 'anymail-ses' %}11.1[amazon-ses]{% else %}11.1[sendgrid]{% endif %}",
+{%- endif %}
+{%- if cookiecutter.storage == 'aws-s3' %}
+    # --- storage: AWS S3 ---
+    "django-storages[s3]>=1.14",
+    "boto3>=1.35",
+{%- elif cookiecutter.storage == 'gcs' %}
+    "django-storages[google]>=1.14",
+{%- elif cookiecutter.storage == 'azure-blob' %}
+    "django-storages[azure]>=1.14",
+{%- endif %}
+{%- if cookiecutter.graph_db == 'neo4j' %}
+    "neomodel>=5.4",
+{%- elif cookiecutter.graph_db == 'surreal' %}
+    "surrealdb>=1.0",
+{%- elif cookiecutter.graph_db == 'nebula' %}
+    "nebula3-python>=3.8",
+{%- elif cookiecutter.graph_db == 'dgraph' %}
+    "pydgraph>=24.3",
+{%- endif %}
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "pytest-cov>=6.0",
+    "pytest-xdist>=3.6",
+    "pytest-asyncio>=0.25",
+    "factory-boy>=3.3",
+    "Faker>=33.1",
+    "model-bakery>=1.20",
+    "ruff>=0.9",
+    "djlint>=1.36",
+    "django-debug-toolbar>=4.4",
+    "django-stubs[compatible-mypy]>=5.1",
+    "djangorestframework-stubs[compatible-mypy]>=3.15",
+    "coverage[toml]>=7.6",
+    "ipdb>=0.13",
+    "Werkzeug[watchdog]>=3.1",
+{%- if cookiecutter.type_checker == 'mypy' %}
+    "mypy>=1.14",
+{%- elif cookiecutter.type_checker == 'pyright' %}
+    "pyright>=1.1.392",
+{%- endif %}
+{%- if cookiecutter.use_pre_commit %}
+    "pre-commit>=4.0",
+{%- endif %}
+    "watchfiles>=1.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py{{ cookiecutter.python_version_short }}"
+extend-exclude = ["*/migrations/*", "static", "media"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W", "I", "B", "UP", "S", "N", "C90", "PT", "PL", "DJ", "RUF", "SIM", "TID",
+]
+ignore = [
+    "S101", # asserts ok in tests
+    "PLR0913", # too-many-args
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106", "PLR2004"]
+"**/tests/*" = ["S101", "S105", "S106", "PLR2004"]
+"**/settings/*" = ["S105"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.djlint]
+profile = "django"
+max_line_length = 120
+format_css = true
+format_js = true
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = [
+    "--reuse-db",
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:django.*",
+    "ignore::DeprecationWarning:allauth.*",
+]
+markers = [
+    "slow: marks a slow test",
+    "integration: hits an external service",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["apps", "config"]
+omit = ["*/migrations/*", "*/tests/*", "manage.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 90
+exclude_also = [
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+]
+
+{%- if cookiecutter.type_checker == 'mypy' %}
+
+[tool.mypy]
+python_version = "{{ cookiecutter.python_version }}"
+strict = true
+warn_unreachable = true
+plugins = ["mypy_django_plugin.main"{% if cookiecutter.api_layer == 'drf' %}, "mypy_drf_plugin.main"{% endif %}]
+exclude = ["migrations/", "build/", "dist/"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings.local"
+{%- elif cookiecutter.type_checker == 'pyright' %}
+
+[tool.pyright]
+include = ["apps", "config"]
+exclude = ["**/migrations", "**/node_modules", "**/__pycache__", ".venv"]
+pythonVersion = "{{ cookiecutter.python_version }}"
+strict = ["apps", "config"]
+{%- endif %}
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

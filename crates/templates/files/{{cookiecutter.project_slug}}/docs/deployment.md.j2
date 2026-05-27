@@ -1,0 +1,57 @@
+# Deployment
+
+This project ships with **{{ cookiecutter.container_setup }}** scaffolding. Pick a target below.
+
+## Docker Compose (single host)
+
+```bash
+# On the host:
+cp .env.example .env  # then fill in production secrets
+docker compose -f compose.production.yml up -d --build
+```
+
+{% if cookiecutter.container_setup == 'compose-traefik' %}
+Traefik handles TLS termination automatically via Let's Encrypt (ACME TLS-ALPN-01).
+Point `{{ cookiecutter.domain_name }}` A record at the host's public IP and wait for
+certificate issuance (1–2 min).
+{% endif %}
+
+## Fly.io
+
+```bash
+fly launch --no-deploy            # creates fly.toml from your Dockerfile
+fly secrets set DJANGO_SECRET_KEY="…"
+fly secrets set DATABASE_URL="…"
+fly deploy
+```
+
+## Render
+
+Create a **Web Service** pointed at `compose/production/django/Dockerfile`; add a
+Postgres add-on; copy its `DATABASE_URL` into env vars.
+
+## Railway
+
+```bash
+railway init && railway up
+railway add postgresql
+```
+
+## Kubernetes
+
+The `compose/production/django/Dockerfile` produces a single image that runs
+`gunicorn` on port 5000. Deploy as a `Deployment` + `Service` + `Ingress`. Set
+the `DJANGO_SETTINGS_MODULE=config.settings.production` env, mount your
+`DATABASE_URL` from a secret, and route `/healthz` + `/readyz` to your liveness
+and readiness probes respectively.
+
+## Pre-flight checklist
+
+Run **every** time before a production deploy:
+
+```bash
+just deploy-check    # python manage.py check --deploy --fail-level=WARNING
+just test            # full test suite passes
+just audit           # pip-audit + gitleaks
+docker build -t test -f compose/production/django/Dockerfile .  # image builds
+```

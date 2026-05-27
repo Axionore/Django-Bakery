@@ -1,0 +1,14 @@
+"""URL routes for the users app."""
+
+from __future__ import annotations
+
+from django.urls import path
+
+from apps.users import views
+
+app_name = "users"
+
+urlpatterns = [
+    path("me/", views.UserProfileView.as_view(), name="profile"),
+    path("me/edit/", views.UserUpdateView.as_view(), name="edit"),
+]

@@ -1,0 +1,44 @@
+/target
+**/*.rs.bk
+Cargo.lock.bak
+
+# Snapshot test artifacts
+**/snapshots/*.snap.new
+**/*.pending-snap
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local recipe scratch
+/scratch/
+/.scratch/
+/out/
+
+# Claude / AI workflow artifacts — never check in
+/.remember/
+/.claude/
+/CLAUDE.md
+/AGENTS.md
+/.aider*
+/.cursor/
+/.cursorrules
+/.windsurf/
+/.codex/
+/.specstory/
+
+# Local plan / spec scratch files
+/plans/
+/specs/draft-*.md
+
+# IMPORTANT: the embedded template tree contains files that LOOK ignorable
+# (`.env.example.j2`, `.vscode/`, `.gitignore`, etc.) but ARE the templates
+# we ship. Un-ignore everything under crates/templates/files/.
+!crates/templates/files/**
+!crates/templates/files/**/.*

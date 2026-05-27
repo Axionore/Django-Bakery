@@ -1,0 +1,12 @@
+{
+    "recommendations": [
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "monosans.djlint",
+        "tamasfe.even-better-toml",
+        "redhat.vscode-yaml",
+        "EditorConfig.EditorConfig",
+        "esbenp.prettier-vscode"
+    ]
+}

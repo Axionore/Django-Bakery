@@ -1,0 +1,26 @@
+"""User-related views beyond what allauth provides."""
+
+from __future__ import annotations
+
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import DetailView, UpdateView
+
+from apps.users.models import User
+
+
+class UserProfileView(LoginRequiredMixin, DetailView):
+    template_name = "users/profile.html"
+    model = User
+
+    def get_object(self, queryset=None) -> User:  # type: ignore[override]
+        return self.request.user  # type: ignore[return-value]
+
+
+class UserUpdateView(LoginRequiredMixin, UpdateView):
+    model = User
+    template_name = "users/edit.html"
+    fields = ["full_name"]
+    success_url = "/users/me/"
+
+    def get_object(self, queryset=None) -> User:  # type: ignore[override]
+        return self.request.user  # type: ignore[return-value]

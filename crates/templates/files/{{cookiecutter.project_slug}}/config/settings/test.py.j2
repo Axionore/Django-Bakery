@@ -1,0 +1,23 @@
+"""Test settings — in-memory DB where possible, fast hashers, deterministic email."""
+
+from __future__ import annotations
+
+from .base import *  # noqa: F401,F403
+from .base import env  # noqa: F401
+
+DEBUG = False
+SECRET_KEY = "test-secret-not-for-anything-real"
+ALLOWED_HOSTS = ["*"]
+
+# Fast password hashing in tests
+PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+# In-memory locmem cache + collected email
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+
+# Templates: don't load debug toolbar etc.
+DEBUG_TOOLBAR_CONFIG = {"SHOW_TOOLBAR_CALLBACK": lambda request: False}
+
+# Tests do not need migrations to run via real DDL when using --reuse-db.
+# Override per-app via pytest marks if a specific test needs raw SQL.

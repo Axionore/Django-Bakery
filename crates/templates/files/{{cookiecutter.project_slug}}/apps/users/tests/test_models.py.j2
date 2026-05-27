@@ -1,0 +1,22 @@
+"""Unit tests for the custom User model."""
+
+from __future__ import annotations
+
+import pytest
+
+from apps.users.models import User
+from apps.users.tests.factories import UserFactory
+
+
+@pytest.mark.django_db
+def test_user_created_with_email() -> None:
+    user = UserFactory(email="alice@example.test")
+    assert user.email == "alice@example.test"
+    assert user.check_password("correct-horse-battery-staple")
+    assert user.is_active
+
+
+@pytest.mark.django_db
+def test_create_superuser() -> None:
+    u = User.objects.create_superuser(email="root@example.test", password="hunter2-12345")
+    assert u.is_staff and u.is_superuser

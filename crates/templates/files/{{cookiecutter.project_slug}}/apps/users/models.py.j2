@@ -1,0 +1,38 @@
+"""Custom User model — email is the username; argon2 password hashing in base.py."""
+
+from __future__ import annotations
+
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+
+class User(AbstractUser):
+    """Project user — email-only auth, no `username` field."""
+
+    username = None  # we authenticate by email
+    email = models.EmailField(_("email address"), unique=True)
+    full_name = models.CharField(_("full name"), max_length=255, blank=True)
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS: list[str] = []
+
+    objects: "UserManager" = None  # populated below
+
+    class Meta:
+        verbose_name = _("user")
+        verbose_name_plural = _("users")
+
+    def __str__(self) -> str:
+        return self.email
+
+    def get_short_name(self) -> str:
+        return self.full_name.split()[0] if self.full_name else self.email
+
+    def get_full_name(self) -> str:
+        return self.full_name or self.email
+
+
+from apps.users.managers import UserManager  # noqa: E402
+
+User.add_to_class("objects", UserManager())

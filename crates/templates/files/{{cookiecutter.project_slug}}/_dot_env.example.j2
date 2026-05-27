@@ -1,0 +1,71 @@
+# =============================================================================
+# {{ cookiecutter.project_name }} — environment variables
+# Copy to `.env` and fill in. NEVER commit the real `.env`.
+# =============================================================================
+
+# --- Django core ---
+DJANGO_SETTINGS_MODULE=config.settings.local
+DJANGO_SECRET_KEY={{ bakery.django_secret_key }}
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+DJANGO_DEFAULT_FROM_EMAIL=noreply@{{ cookiecutter.domain_name }}
+DJANGO_ADMIN_URL=admin/
+
+# --- Database ---
+{%- if cookiecutter.is_postgres %}
+DATABASE_URL=postgres://postgres:{{ bakery.postgres_password }}@postgres:5432/{{ cookiecutter.project_slug }}
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB={{ cookiecutter.project_slug }}
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD={{ bakery.postgres_password }}
+{%- elif cookiecutter.is_sqlite %}
+DATABASE_URL=sqlite:///./db.sqlite3
+{%- else %}
+DATABASE_URL=mysql://root:root@mysql:3306/{{ cookiecutter.project_slug }}
+{%- endif %}
+
+# --- Email (local dev → Mailpit) ---
+{%- if cookiecutter.use_mailpit %}
+EMAIL_HOST=mailpit
+EMAIL_PORT=1025
+{%- endif %}
+
+{%- if cookiecutter.use_celery %}
+# --- Celery ---
+{%- if cookiecutter.celery_broker == 'redis' %}
+CELERY_BROKER_URL=redis://:{{ bakery.redis_password }}@redis:6379/0
+REDIS_URL=redis://:{{ bakery.redis_password }}@redis:6379/0
+REDIS_PASSWORD={{ bakery.redis_password }}
+{%- else %}
+CELERY_BROKER_URL=amqp://rabbitmq:5672/
+{%- endif %}
+{%- endif %}
+
+# --- Production-only secrets (placeholders) ---
+{%- if cookiecutter.storage == 'aws-s3' %}
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_STORAGE_BUCKET_NAME=
+AWS_S3_REGION_NAME=us-east-1
+{%- endif %}
+{%- if cookiecutter.prod_email == 'anymail-mailgun' %}
+MAILGUN_API_KEY=
+MAILGUN_DOMAIN={{ cookiecutter.domain_name }}
+{%- endif %}
+{%- if cookiecutter.use_sentry %}
+SENTRY_DSN=
+SENTRY_ENVIRONMENT=production
+SENTRY_TRACES_SAMPLE_RATE=0.1
+{%- endif %}
+{%- if cookiecutter.use_observability %}
+OTEL_EXPORTER_OTLP_ENDPOINT=
+OTEL_SERVICE_NAME={{ cookiecutter.project_slug }}
+{%- endif %}
+
+# --- CORS (SPA origins) ---
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# --- Tooling ---
+USE_DEBUG_TOOLBAR=True

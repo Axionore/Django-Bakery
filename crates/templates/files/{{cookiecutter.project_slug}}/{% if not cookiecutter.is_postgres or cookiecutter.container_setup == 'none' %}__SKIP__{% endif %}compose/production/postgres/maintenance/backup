@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BACKUP_DIR=/backups
+TIMESTAMP=$(date +%Y%m%dT%H%M%S)
+FILENAME="${BACKUP_DIR}/backup_${POSTGRES_DB}_${TIMESTAMP}.sql.gz"
+
+PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
+    -h "${POSTGRES_HOST:-postgres}" \
+    -U "${POSTGRES_USER}" \
+    -d "${POSTGRES_DB}" \
+    --no-owner --no-acl | gzip > "${FILENAME}"
+
+echo "Backup written: ${FILENAME}"

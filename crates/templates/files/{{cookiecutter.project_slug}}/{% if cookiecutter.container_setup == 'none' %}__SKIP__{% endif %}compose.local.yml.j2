@@ -1,0 +1,134 @@
+name: {{ cookiecutter.project_slug }}_local
+
+services:
+  django: &django
+    build:
+      context: .
+      dockerfile: compose/local/django/Dockerfile
+    image: {{ cookiecutter.project_slug }}_local_django
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+    volumes:
+      - .:/app:cached
+    depends_on:
+{%- if cookiecutter.is_postgres %}
+      postgres:
+        condition: service_healthy
+{%- endif %}
+{%- if cookiecutter.use_mailpit %}
+      mailpit:
+        condition: service_started
+{%- endif %}
+{%- if cookiecutter.use_celery and cookiecutter.celery_broker == 'redis' %}
+      redis:
+        condition: service_started
+{%- endif %}
+{%- if cookiecutter.use_celery and cookiecutter.celery_broker == 'rabbitmq' %}
+      rabbitmq:
+        condition: service_started
+{%- endif %}
+    ports:
+      - "8000:8000"
+    command: /app/compose/local/django/start
+
+{%- if cookiecutter.is_postgres %}
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: {{ cookiecutter.project_slug }}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: {{ bakery.postgres_password }}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d {{ cookiecutter.project_slug }}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - "5432:5432"
+{%- endif %}
+
+{%- if cookiecutter.use_mailpit %}
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+{%- endif %}
+
+{%- if cookiecutter.use_celery and cookiecutter.celery_broker == 'redis' %}
+
+  redis:
+    image: redis:8-alpine
+    command: redis-server --requirepass {{ bakery.redis_password }}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+{%- endif %}
+
+{%- if cookiecutter.use_celery and cookiecutter.celery_broker == 'rabbitmq' %}
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+{%- endif %}
+
+{%- if cookiecutter.use_celery %}
+
+  celery_worker:
+    <<: *django
+    image: {{ cookiecutter.project_slug }}_local_celery_worker
+    depends_on:
+      django:
+        condition: service_started
+{%- if cookiecutter.celery_broker == 'redis' %}
+      redis:
+        condition: service_started
+{%- else %}
+      rabbitmq:
+        condition: service_started
+{%- endif %}
+    ports: []
+    command: /app/compose/local/django/celery/worker/start
+
+  celery_beat:
+    <<: *django
+    image: {{ cookiecutter.project_slug }}_local_celery_beat
+    depends_on:
+      django:
+        condition: service_started
+{%- if cookiecutter.celery_broker == 'redis' %}
+      redis:
+        condition: service_started
+{%- else %}
+      rabbitmq:
+        condition: service_started
+{%- endif %}
+    ports: []
+    command: /app/compose/local/django/celery/beat/start
+
+  flower:
+    <<: *django
+    image: {{ cookiecutter.project_slug }}_local_flower
+    ports:
+      - "5555:5555"
+    command: /app/compose/local/django/celery/flower/start
+{%- endif %}
+
+volumes:
+{%- if cookiecutter.is_postgres %}
+  postgres_data: {}
+  postgres_data_backups: {}
+{%- endif %}
+{%- if cookiecutter.use_celery and cookiecutter.celery_broker == 'redis' %}
+  redis_data: {}
+{%- endif %}

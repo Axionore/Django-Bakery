@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Wait for the DB to be reachable (compose-level healthchecks help; this is a belt-and-braces).
+if [ -n "${POSTGRES_HOST:-}" ]; then
+    until python -c "import socket; s = socket.socket(); s.settimeout(3); s.connect(('${POSTGRES_HOST}', int(${POSTGRES_PORT:-5432})))" >/dev/null 2>&1; do
+        echo "Waiting for Postgres at ${POSTGRES_HOST}:${POSTGRES_PORT:-5432}…"
+        sleep 1
+    done
+fi
+
+exec "$@"

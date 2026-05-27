@@ -1,0 +1,16 @@
+[package]
+name = "django-bakery-templates"
+description = "Embedded template assets for django-bakery"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+name = "django_bakery_templates"
+path = "src/lib.rs"
+
+[dependencies]
+include_dir = { workspace = true }

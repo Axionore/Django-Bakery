@@ -1,0 +1,121 @@
+"""Production settings — SSL on, HSTS hot, secrets from env, no DEBUG ever."""
+
+from __future__ import annotations
+
+from .base import *  # noqa: F401,F403
+from .base import INSTALLED_APPS, MIDDLEWARE, env
+
+DEBUG = False
+SECRET_KEY = env("DJANGO_SECRET_KEY")  # MUST be set in env; no default in prod
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["{{ cookiecutter.domain_name }}"])
+
+# ---------------------------------------------------------------------------
+# Hardening — OWASP A02, A05, A07 + ASVS L2
+# ---------------------------------------------------------------------------
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365  # 1 year
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS",
+    default=[f"https://{{ cookiecutter.domain_name }}"],
+)
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14
+
+# ---------------------------------------------------------------------------
+# Storage — static + media
+# ---------------------------------------------------------------------------
+{%- if cookiecutter.storage == 'aws-s3' %}
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="us-east-1")
+AWS_QUERYSTRING_AUTH = False
+AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+
+STORAGES["default"] = {"BACKEND": "storages.backends.s3.S3Storage"}
+STORAGES["staticfiles"] = {"BACKEND": "storages.backends.s3.S3Storage"}
+{%- elif cookiecutter.storage == 'gcs' %}
+GS_BUCKET_NAME = env("GS_BUCKET_NAME")
+GS_CREDENTIALS = env("GS_CREDENTIALS_FILE", default=None)
+STORAGES["default"] = {"BACKEND": "storages.backends.gcloud.GoogleCloudStorage"}
+STORAGES["staticfiles"] = {"BACKEND": "storages.backends.gcloud.GoogleCloudStorage"}
+{%- elif cookiecutter.storage == 'azure-blob' %}
+AZURE_ACCOUNT_NAME = env("AZURE_ACCOUNT_NAME")
+AZURE_ACCOUNT_KEY = env("AZURE_ACCOUNT_KEY")
+AZURE_CONTAINER = env("AZURE_CONTAINER")
+STORAGES["default"] = {"BACKEND": "storages.backends.azure_storage.AzureStorage"}
+STORAGES["staticfiles"] = {"BACKEND": "storages.backends.azure_storage.AzureStorage"}
+{%- endif %}
+
+# ---------------------------------------------------------------------------
+# Email
+# ---------------------------------------------------------------------------
+{%- if cookiecutter.prod_email == 'anymail-mailgun' %}
+INSTALLED_APPS += ["anymail"]
+EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
+ANYMAIL = {
+    "MAILGUN_API_KEY": env("MAILGUN_API_KEY"),
+    "MAILGUN_SENDER_DOMAIN": env("MAILGUN_DOMAIN", default="{{ cookiecutter.domain_name }}"),
+}
+{%- elif cookiecutter.prod_email == 'anymail-ses' %}
+INSTALLED_APPS += ["anymail"]
+EMAIL_BACKEND = "anymail.backends.amazon_ses.EmailBackend"
+{%- elif cookiecutter.prod_email == 'anymail-sendgrid' %}
+INSTALLED_APPS += ["anymail"]
+EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
+ANYMAIL = {"SENDGRID_API_KEY": env("SENDGRID_API_KEY")}
+{%- elif cookiecutter.prod_email == 'smtp' %}
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS = True
+{%- else %}
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+{%- endif %}
+
+# ---------------------------------------------------------------------------
+# Sentry
+# ---------------------------------------------------------------------------
+{%- if cookiecutter.use_sentry %}
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+
+sentry_sdk.init(
+    dsn=env("SENTRY_DSN", default=""),
+    integrations=[DjangoIntegration()],
+    environment=env("SENTRY_ENVIRONMENT", default="production"),
+    release=env("SENTRY_RELEASE", default="0.1.0"),
+    traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),
+    send_default_pii=False,
+)
+{%- endif %}
+
+# ---------------------------------------------------------------------------
+# OpenTelemetry — emits OTLP to env-configured endpoint.
+# ---------------------------------------------------------------------------
+{%- if cookiecutter.use_observability %}
+import os
+
+if env("OTEL_EXPORTER_OTLP_ENDPOINT", default=None):
+    from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.instrumentation.django import DjangoInstrumentor
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+    resource = Resource(attributes={"service.name": "{{ cookiecutter.project_slug }}"})
+    provider = TracerProvider(resource=resource)
+    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+    trace.set_tracer_provider(provider)
+    DjangoInstrumentor().instrument(is_sql_commentor_enabled=True)
+{%- endif %}

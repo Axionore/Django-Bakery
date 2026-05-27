@@ -1,0 +1,133 @@
+# {{ cookiecutter.project_name }}
+
+> {{ cookiecutter.description }}
+
+Generated with [`django-bakery`](https://github.com/charlesasobel/django-bakery) ·
+**Django {{ cookiecutter.django_version }}** · **Python {{ cookiecutter.python_version }}**
+{%- if cookiecutter.is_postgres %} · PostgreSQL{% endif %}
+{%- if cookiecutter.api_layer != 'none' %} · {{ cookiecutter.api_layer }}{% endif %}
+{%- if cookiecutter.frontend != 'none' %} · {{ cookiecutter.frontend }}{% endif %}.
+
+---
+
+## Quickstart
+
+```bash
+# Install dependencies (uv handles the venv).
+uv sync
+
+# Copy + edit secrets.
+cp .env.example .env
+$EDITOR .env
+
+# Database
+uv run python manage.py migrate
+uv run python manage.py createsuperuser
+
+# Serve
+{%- if cookiecutter.container_setup != 'none' %}
+docker compose -f compose.local.yml up --build
+{%- else %}
+just serve
+{%- endif %}
+```
+
+Then open <http://localhost:8000>{% if cookiecutter.use_mailpit %}, or <http://localhost:8025> for Mailpit{% endif %}{% if cookiecutter.api_layer == 'ninja' %}, or <http://localhost:8000/api/docs> for the OpenAPI UI{% endif %}.
+
+## Stack
+
+| Layer       | Choice |
+| ----------- | ------ |
+| Framework   | Django {{ cookiecutter.django_version }} |
+| Language    | Python {{ cookiecutter.python_version }} |
+| DB          | {{ cookiecutter.relational_db }}{% if cookiecutter.graph_db != 'none' %} + {{ cookiecutter.graph_db }}{% endif %} |
+| API         | {{ cookiecutter.api_layer }} |
+| Frontend    | {{ cookiecutter.frontend }}{% if cookiecutter.frontend == 'react' and cookiecutter.radix_flavor %} (Radix {{ cookiecutter.radix_flavor }}){% endif %} |
+| CSS         | {{ cookiecutter.css_framework }} |
+| Tasks       | {% if cookiecutter.use_celery %}Celery + {{ cookiecutter.celery_broker }}{% else %}—{% endif %} |
+| Email (prod)| {{ cookiecutter.prod_email }} |
+| Storage     | {{ cookiecutter.storage }} |
+| Observability | {% if cookiecutter.use_observability %}structlog + OpenTelemetry{% else %}standard logging{% endif %} |
+| Errors      | {% if cookiecutter.use_sentry %}Sentry{% else %}—{% endif %} |
+| CI/CD       | {{ cookiecutter.ci }} |
+| Type checks | {{ cookiecutter.type_checker }} |
+| VCS         | {{ cookiecutter.version_control }} |
+
+## Common commands
+
+```bash
+just              # list all recipes
+just sync         # uv sync
+just serve        # dev server (no Docker)
+just up           # docker compose up (local)
+just migrate      # apply migrations
+just fmt          # ruff + djlint
+just lint         # ruff + djlint + {{ cookiecutter.type_checker }}
+just test         # pytest
+just cov          # pytest + coverage report
+just audit        # pip-audit + gitleaks
+```
+
+## Security baseline (what's already on)
+
+- **Auth** — django-allauth with email-as-username, **MFA (TOTP + recovery codes)**, Argon2 password hashing first, 12-char min password length.
+- **Headers** — HSTS (1y) + preload, secure cookies, `SECURE_REFERRER_POLICY=same-origin`, `X-Frame-Options=DENY` (prod).
+- **CSP** — `django-csp` configured; tighten the policy in `config/settings/base.py` for inline scripts.
+- **CSRF** — strict same-site cookies; `CSRF_TRUSTED_ORIGINS` driven by env.
+- **CORS** — `django-cors-headers`, deny-by-default; whitelist via `CORS_ALLOWED_ORIGINS` env.
+- **Rate limiting** — `django-ratelimit` ready to decorate auth views{% if cookiecutter.api_layer == 'drf' %}; DRF throttle classes in `REST_FRAMEWORK`{% endif %}.
+- **Secrets** — never in code; `django-environ` reads `.env*`; `.env` is `.gitignore`'d.
+- **Audit** — `gitleaks` on every commit (pre-commit hook); `pip-audit` in CI.
+- **Hashing** — Argon2id first; legacy hashers retained for migration.
+
+See [`docs/security.md`](docs/security.md) for the full threat model + ASVS L2 checklist.
+
+## Authentication
+
+- **Server-rendered**: `accounts/login/`, `accounts/signup/`, `accounts/password/reset/` — provided by django-allauth.
+- **Admin**: `/{{ '{' }}{{ '{' }}DJANGO_ADMIN_URL{{ '}' }}{{ '}' }}` (default `admin/`).
+{%- if cookiecutter.has_frontend_spa %}
+- **SPA (headless)**: JSON endpoints under `/_allauth/`. Login, signup, MFA challenge, password reset all available. See `frontend/src/auth/` for a typed client.
+{%- endif %}
+- **MFA**: TOTP authenticator app + recovery codes. Enable per-user from the profile page.
+
+## Testing
+
+```bash
+just test                       # all tests
+uv run pytest -k "users"        # one app
+uv run pytest --reuse-db        # skip DB reset between runs
+just cov                        # coverage report → htmlcov/index.html
+```
+
+## Project layout
+
+```
+.
+├── apps/
+│   ├── core/        # home page, health checks, error handlers
+│   ├── users/       # custom User model, profile views
+{%- if cookiecutter.api_layer != 'none' %}
+│   └── api/         # {{ cookiecutter.api_layer }} routes
+{%- endif %}
+├── config/
+│   ├── settings/    # base.py, local.py, production.py, test.py
+│   ├── urls.py
+│   ├── asgi.py
+│   └── wsgi.py
+├── templates/       # base.html, error pages, allauth overrides
+├── static/          # CSS, JS, images
+{%- if cookiecutter.container_setup != 'none' %}
+├── compose/         # Docker assets
+├── compose.local.yml
+└── compose.production.yml
+{%- endif %}
+```
+
+## Deployment
+
+See [`docs/deployment.md`](docs/deployment.md) for {% if cookiecutter.container_setup == 'compose-traefik' %}Traefik + Let's Encrypt{% elif cookiecutter.container_setup == 'compose-only' %}Docker Compose{% else %}bare-metal{% endif %} deploy notes.
+
+## License
+
+{% if cookiecutter.license == 'mit' %}MIT{% elif cookiecutter.license == 'apache-2' %}Apache 2.0{% elif cookiecutter.license == 'bsd-3' %}BSD-3-Clause{% else %}Proprietary — all rights reserved{% endif %} © {{ bakery.year }} {{ cookiecutter.author_name }}.

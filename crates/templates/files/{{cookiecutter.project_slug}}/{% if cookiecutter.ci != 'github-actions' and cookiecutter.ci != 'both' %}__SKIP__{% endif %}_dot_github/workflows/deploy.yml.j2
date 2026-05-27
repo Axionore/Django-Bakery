@@ -1,0 +1,40 @@
+name: Deploy
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ '{{ github.actor }}' }}
+          password: ${{ '{{ secrets.GITHUB_TOKEN }}' }}
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: compose/production/django/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ '{{ github.repository }}' }}:latest
+            ghcr.io/${{ '{{ github.repository }}' }}:${{ '{{ github.ref_name }}' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Replace the deployment step below with whatever your hosting provider expects.
+      # Examples: fly deploy, gcloud run deploy, kubectl apply, ssh + docker compose pull.
+      - name: Deploy
+        run: echo "Configure this step for your deployment target (fly.io, Render, Railway, k8s, ssh, etc.)"

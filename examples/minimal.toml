@@ -1,0 +1,35 @@
+# Example recipe — minimal. SQLite, no Docker, no Celery, no Sentry.
+project_name = "Minimal"
+project_slug = "minimal"
+description  = "Smallest viable project"
+author_name  = "Dev"
+author_email = "dev@example.com"
+domain_name  = "minimal.example.com"
+license      = "mit"
+open_source  = true
+
+python_version  = "3.14"
+django_version  = "6.0"
+mode            = "development"
+relational_db   = "sqlite"
+graph_db        = "none"
+api_layer       = "none"
+frontend        = "django-templates"
+js_language     = "typescript"
+js_testing      = false
+css_framework   = "none"
+
+use_celery        = false
+celery_broker     = "redis"
+use_mailpit       = false
+prod_email        = "console"
+storage           = "whitenoise"
+use_sentry        = false
+use_observability = false
+use_feature_flags = false
+type_checker      = "none"
+use_pre_commit    = false
+ci                = "none"
+container_setup   = "none"
+version_control   = "git"
+timezone          = "UTC"

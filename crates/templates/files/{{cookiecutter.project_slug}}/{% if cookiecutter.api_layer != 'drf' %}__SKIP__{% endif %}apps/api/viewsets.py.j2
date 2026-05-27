@@ -1,0 +1,25 @@
+"""DRF viewsets."""
+
+from __future__ import annotations
+
+from rest_framework import mixins, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from apps.api.serializers import UserSerializer
+from apps.users.models import User
+
+
+class UserViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    queryset = User.objects.all().order_by("id")
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=["get"])
+    def me(self, request) -> Response:
+        return Response(self.serializer_class(request.user).data)

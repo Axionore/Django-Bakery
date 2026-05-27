@@ -1,0 +1,21 @@
+{% raw %}{% extends "base.html" %}
+{% load i18n allauth account %}{% endraw %}
+
+{% raw %}{% block title %}Sign up{% endblock %}{% endraw %}
+
+{% raw %}{% block content %}{% endraw %}
+<section class="mx-auto max-w-md">
+    <h1 class="text-2xl font-semibold">Create your account</h1>
+    <form method="post" action="{% raw %}{% url 'account_signup' %}{% endraw %}" class="mt-6 space-y-4">
+        {% raw %}{% csrf_token %}
+        {{ form.as_p }}{% endraw %}
+        <button type="submit" class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+            Sign up
+        </button>
+    </form>
+    <p class="mt-6 text-sm text-slate-600">
+        Already have an account?
+        <a href="{% raw %}{% url 'account_login' %}{% endraw %}" class="underline">Sign in</a>
+    </p>
+</section>
+{% raw %}{% endblock %}{% endraw %}

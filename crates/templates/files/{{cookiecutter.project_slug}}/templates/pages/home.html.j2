@@ -1,0 +1,18 @@
+{% raw %}{% extends "base.html" %}{% endraw %}
+
+{% raw %}{% block title %}Home — {% endraw %}{{ cookiecutter.project_name }}{% raw %}{% endblock %}{% endraw %}
+
+{% raw %}{% block content %}{% endraw %}
+<section class="space-y-6">
+    <h1 class="text-4xl font-bold tracking-tight">Welcome to {{ cookiecutter.project_name }}</h1>
+    <p class="max-w-2xl text-lg text-slate-600 dark:text-slate-400">
+        {{ cookiecutter.description }}
+    </p>
+    <div class="flex gap-3">
+        <a href="{% raw %}{% url 'core:about' %}{% endraw %}" class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900">Learn more</a>
+{%- if cookiecutter.api_layer != 'none' %}
+        <a href="/api/docs" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">API docs</a>
+{%- endif %}
+    </div>
+</section>
+{% raw %}{% endblock %}{% endraw %}

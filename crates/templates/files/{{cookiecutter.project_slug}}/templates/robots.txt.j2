@@ -1,0 +1,7 @@
+User-agent: *
+{%- if cookiecutter.open_source %}
+Disallow:
+{%- else %}
+Disallow: /
+{%- endif %}
+Sitemap: https://{{ cookiecutter.domain_name }}/sitemap.xml

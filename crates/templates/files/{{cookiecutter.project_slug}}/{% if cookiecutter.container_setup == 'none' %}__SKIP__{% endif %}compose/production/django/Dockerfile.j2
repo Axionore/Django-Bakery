@@ -1,0 +1,64 @@
+# syntax=docker/dockerfile:1.7
+
+# ----- builder ----------------------------------------------------------------
+FROM python:{{ cookiecutter.python_version }}-slim-bookworm AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/venv \
+    UV_COMPILE_BYTECODE=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+{%- if cookiecutter.is_mysqlish %}
+    default-libmysqlclient-dev pkg-config \
+{%- endif %}
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+COPY pyproject.toml uv.lock* /app/
+RUN uv sync --frozen --no-dev --no-install-project
+
+COPY . /app
+RUN uv sync --frozen --no-dev
+
+# ----- runtime ----------------------------------------------------------------
+FROM python:{{ cookiecutter.python_version }}-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/venv/bin:$PATH"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+{%- if cookiecutter.is_mysqlish %}
+    default-libmysqlclient-dev \
+{%- endif %}
+    gosu curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system django \
+    && useradd --system --gid django --create-home --home-dir /home/django django
+
+COPY --from=builder /venv /venv
+COPY --from=builder /app /app
+RUN chown -R django:django /app
+
+COPY --chown=django:django compose/production/django/start /start
+COPY --chown=django:django compose/production/django/entrypoint /entrypoint
+{%- if cookiecutter.use_celery %}
+COPY --chown=django:django compose/production/django/celery/worker/start /start-celeryworker
+COPY --chown=django:django compose/production/django/celery/beat/start /start-celerybeat
+COPY --chown=django:django compose/production/django/celery/flower/start /start-flower
+RUN chmod +x /start-celeryworker /start-celerybeat /start-flower
+{%- endif %}
+RUN chmod +x /start /entrypoint
+
+USER django
+WORKDIR /app
+EXPOSE 5000
+ENTRYPOINT ["/entrypoint"]
+CMD ["/start"]

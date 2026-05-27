@@ -1,0 +1,10 @@
+"""API app — exposes HTTP routes for {{ cookiecutter.api_layer }}."""
+
+from __future__ import annotations
+
+from django.apps import AppConfig
+
+
+class ApiConfig(AppConfig):
+    name = "apps.api"
+    default_auto_field = "django.db.models.BigAutoField"

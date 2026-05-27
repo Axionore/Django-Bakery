@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -z "${1:-}" ]; then
+    echo "Usage: restore <backup-file.sql.gz>" >&2
+    exit 64
+fi
+
+gunzip -c "$1" | PGPASSWORD="${POSTGRES_PASSWORD}" psql \
+    -h "${POSTGRES_HOST:-postgres}" \
+    -U "${POSTGRES_USER}" \
+    -d "${POSTGRES_DB}"

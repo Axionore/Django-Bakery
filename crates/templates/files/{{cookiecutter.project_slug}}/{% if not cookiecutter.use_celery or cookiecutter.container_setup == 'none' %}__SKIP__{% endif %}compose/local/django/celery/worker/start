@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+watchfiles --filter python "celery -A config.celery_app worker -l INFO" /app

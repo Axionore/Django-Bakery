@@ -1,0 +1,35 @@
+# Example recipe — everything enabled. Pass with: django-bakery bake --config examples/full.toml --output ./out
+project_name = "Acme Inc"
+project_slug = "acme"
+description  = "Acme — production SaaS"
+author_name  = "Charles Sobel"
+author_email = "charles@example.com"
+domain_name  = "acme.example.com"
+license      = "mit"
+open_source  = true
+
+python_version  = "3.14"
+django_version  = "6.0"
+mode            = "production"
+relational_db   = "postgres"
+graph_db        = "none"
+api_layer       = "ninja"
+frontend        = "htmx-alpine"
+js_language     = "typescript"
+js_testing      = true
+css_framework   = "tailwind"
+
+use_celery        = true
+celery_broker     = "redis"
+use_mailpit       = true
+prod_email        = "anymail-mailgun"
+storage           = "aws-s3"
+use_sentry        = true
+use_observability = true
+use_feature_flags = false
+type_checker      = "mypy"
+use_pre_commit    = true
+ci                = "github-actions"
+container_setup   = "compose-traefik"
+version_control   = "git"
+timezone          = "UTC"

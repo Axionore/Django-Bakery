@@ -1,0 +1,36 @@
+[package]
+name = "django-bakery-engine"
+description = "Rendering engine for django-bakery"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+name = "django_bakery_engine"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+minijinja = { workspace = true }
+walkdir = { workspace = true }
+include_dir = { workspace = true }
+heck = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+tracing = { workspace = true }
+regex = { workspace = true }
+rayon = { workspace = true }
+ureq = { workspace = true }
+semver = { workspace = true }
+django-bakery-templates = { path = "../templates" }
+
+[dev-dependencies]
+insta = { workspace = true }
+tempfile = { workspace = true }

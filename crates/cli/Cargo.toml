@@ -1,0 +1,36 @@
+[package]
+name = "django-bakery"
+description = "A fast, modern, production-grade Django project generator written in Rust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "../../README.md"
+keywords = ["django", "cookiecutter", "scaffolding", "generator", "template"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "django-bakery"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+clap = { workspace = true }
+inquire = { workspace = true }
+console = { workspace = true }
+indicatif = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+heck = { workspace = true }
+duct = { workspace = true }
+django-bakery-engine = { path = "../engine" }
+
+[dev-dependencies]
+tempfile = { workspace = true }

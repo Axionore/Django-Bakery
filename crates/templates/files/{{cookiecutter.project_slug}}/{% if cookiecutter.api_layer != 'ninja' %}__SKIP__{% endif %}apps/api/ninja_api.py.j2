@@ -1,0 +1,60 @@
+"""Django Ninja API — async-first, OpenAPI 3.1, Pydantic 2."""
+
+from __future__ import annotations
+
+from typing import List
+
+from django.shortcuts import aget_object_or_404
+from ninja import NinjaAPI, Schema
+from ninja.security import django_auth
+from ninja.errors import HttpError
+
+from apps.users.models import User
+
+
+api = NinjaAPI(
+    title="{{ cookiecutter.project_name }} API",
+    description="{{ cookiecutter.description }}",
+    version="0.1.0",
+    docs_url="/docs",
+    auth=django_auth,
+    csrf=True,
+)
+
+
+class UserOut(Schema):
+    id: int
+    email: str
+    full_name: str
+
+
+class MeOut(Schema):
+    id: int
+    email: str
+    full_name: str
+    is_staff: bool
+
+
+@api.get("/health", auth=None, tags=["health"], summary="Liveness probe")
+def health(request) -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@api.get("/me", response=MeOut, tags=["users"], summary="Current user")
+async def me(request) -> MeOut:
+    user = await User.objects.aget(pk=request.user.pk)
+    return MeOut(id=user.pk, email=user.email, full_name=user.full_name, is_staff=user.is_staff)
+
+
+@api.get("/users", response=List[UserOut], tags=["users"], summary="List users")
+async def list_users(request, limit: int = 50, offset: int = 0) -> list[UserOut]:
+    if limit > 200:
+        raise HttpError(400, "limit cannot exceed 200")
+    qs = User.objects.all().order_by("id")[offset : offset + limit]
+    return [UserOut(id=u.pk, email=u.email, full_name=u.full_name) async for u in qs]
+
+
+@api.get("/users/{user_id}", response=UserOut, tags=["users"])
+async def get_user(request, user_id: int) -> UserOut:
+    u = await aget_object_or_404(User, pk=user_id)
+    return UserOut(id=u.pk, email=u.email, full_name=u.full_name)
