@@ -600,6 +600,144 @@ fn react_recipe() -> Recipe {
     r
 }
 
+fn vue_full_recipe() -> Recipe {
+    let mut r = Recipe::defaults();
+    r.project_slug = "vue_app".into();
+    r.frontend = Frontend::Vue;
+    r.frontend_variant = django_bakery_engine::FrontendVariant::Full;
+    r.radix_flavor = None;
+    r.js_language = django_bakery_engine::JsLanguage::Typescript;
+    r.js_testing = true;
+    r
+}
+
+#[test]
+fn vue_full_recipe_emits_full_tree() {
+    let (_tmp, root) = render_recipe(&vue_full_recipe());
+    assert_present(&root, "pnpm-workspace.yaml");
+    for f in [
+        "frontend/package.json",
+        "frontend/tsconfig.json",
+        "frontend/tsconfig.node.json",
+        "frontend/vite.config.ts",
+        "frontend/vitest.config.ts",
+        "frontend/playwright.config.ts",
+        "frontend/eslint.config.js",
+        "frontend/.prettierrc",
+        "frontend/.gitignore",
+        "frontend/.env.example",
+        "frontend/env.d.ts",
+        "frontend/index.html",
+        "frontend/README.md",
+        "frontend/src/main.ts",
+        "frontend/src/App.vue",
+        "frontend/src/router/index.ts",
+        "frontend/src/layouts/DefaultLayout.vue",
+        "frontend/src/layouts/AccountLayout.vue",
+        "frontend/src/views/HomeView.vue",
+        "frontend/src/views/AboutView.vue",
+        "frontend/src/views/NotFoundView.vue",
+        "frontend/src/views/account/LoginView.vue",
+        "frontend/src/views/account/SignupView.vue",
+        "frontend/src/views/account/ProfileView.vue",
+        "frontend/src/views/account/VerifyEmailView.vue",
+        "frontend/src/views/account/MfaChallengeView.vue",
+        "frontend/src/views/account/MfaActivateView.vue",
+        "frontend/src/views/account/RecoveryCodesView.vue",
+        "frontend/src/auth/client.ts",
+        "frontend/src/auth/csrf.ts",
+        "frontend/src/auth/types.ts",
+        "frontend/src/auth/guards.ts",
+        "frontend/src/stores/auth.ts",
+        "frontend/src/composables/useColorMode.ts",
+        "frontend/src/api/client.ts",
+        "frontend/src/assets/css/main.css",
+        "frontend/tests/stores/auth.test.ts",
+        "frontend/tests/e2e/login.spec.ts",
+    ] {
+        assert_present(&root, f);
+    }
+}
+
+#[test]
+fn vue_full_recipe_carries_no_skip_markers() {
+    let (_tmp, root) = render_recipe(&vue_full_recipe());
+    let mut offenders = Vec::new();
+    for entry in walkdir::WalkDir::new(root.join("frontend")) {
+        let entry = entry.expect("walk");
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let body = std::fs::read_to_string(entry.path()).unwrap_or_default();
+        if body.contains("__SKIP__") {
+            offenders.push(entry.path().display().to_string());
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "Vue full files contain __SKIP__:\n  - {}",
+        offenders.join("\n  - ")
+    );
+}
+
+#[test]
+fn vue_full_auth_client_carries_security_invariants() {
+    let (_tmp, root) = render_recipe(&vue_full_recipe());
+    let body = read(&root, "frontend/src/auth/client.ts");
+    assert!(body.contains("credentials: \"include\""));
+    assert!(body.contains("X-CSRFToken"));
+    assert!(body.contains("mfa_required"));
+    assert!(body.contains("email_verification_required"));
+    for forbidden in [
+        "localStorage.setItem",
+        "localStorage.getItem",
+        "sessionStorage.setItem",
+        "sessionStorage.getItem",
+    ] {
+        assert!(!body.contains(forbidden), "Vue auth client must not call {forbidden}");
+    }
+}
+
+#[test]
+fn vue_full_pinia_store_does_not_persist_to_localstorage() {
+    let (_tmp, root) = render_recipe(&vue_full_recipe());
+    let body = read(&root, "frontend/src/stores/auth.ts");
+    for forbidden in [
+        "localStorage.setItem",
+        "localStorage.getItem",
+        "sessionStorage.setItem",
+        "sessionStorage.getItem",
+        "pinia-plugin-persistedstate",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "Vue Pinia store must NOT persist via {forbidden} (session cookies only)"
+        );
+    }
+}
+
+#[test]
+fn vue_full_eslint_bans_v_html() {
+    let (_tmp, root) = render_recipe(&vue_full_recipe());
+    let body = read(&root, "frontend/eslint.config.js");
+    assert!(body.contains("vue/no-v-html"), "ESLint must ban v-html (OWASP A03)");
+}
+
+#[test]
+fn vue_full_router_has_auth_guards() {
+    let (_tmp, root) = render_recipe(&vue_full_recipe());
+    let guards = read(&root, "frontend/src/auth/guards.ts");
+    assert!(guards.contains("router.beforeEach"), "router-level beforeEach guard required");
+    assert!(guards.contains("requiresAuth"), "must check requiresAuth meta");
+    assert!(guards.contains("guest"), "must check guest meta");
+    let router = read(&root, "frontend/src/router/index.ts");
+    assert!(router.contains("installAuthGuards"), "router/index.ts must install guards");
+    assert!(
+        router.contains("requiresAuth: true"),
+        "auth-required routes must be annotated"
+    );
+}
+
 fn nuxt_full_recipe() -> Recipe {
     let mut r = Recipe::defaults();
     r.project_slug = "nuxt_app".into();

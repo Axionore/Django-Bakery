@@ -1,0 +1,14 @@
+# =============================================================================
+# {{ cookiecutter.project_name }} — frontend (Vue 3 + Vite) environment
+# Copy to `.env` (gitignored). NEVER commit the real `.env`.
+# =============================================================================
+
+# Backend the Vite proxy targets.
+VITE_BACKEND_URL=http://localhost:8000
+
+VITE_APP_NAME={{ cookiecutter.project_name }}
+
+{% if cookiecutter.use_sentry -%}
+# Public Sentry DSN — opt-in. Leave blank to disable client-side error reporting.
+VITE_SENTRY_DSN=
+{%- endif %}

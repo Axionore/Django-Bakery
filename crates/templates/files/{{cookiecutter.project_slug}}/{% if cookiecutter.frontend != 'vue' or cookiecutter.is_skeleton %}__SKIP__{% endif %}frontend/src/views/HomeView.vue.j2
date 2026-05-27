@@ -1,0 +1,30 @@
+<script setup lang="ts">
+import { storeToRefs } from "pinia";
+import { useAuthStore } from "~/stores/auth";
+
+const projectName = import.meta.env.VITE_APP_NAME;
+const description = "{{ cookiecutter.description }}";
+const auth = useAuthStore();
+const { user } = storeToRefs(auth);
+</script>
+
+<template>
+  <section class="space-y-6 py-6">
+    <header>
+      <h1 class="text-4xl font-bold tracking-tight">{{ '{{' }} projectName {{ '}}' }}</h1>
+      <p class="mt-3 max-w-2xl text-lg text-slate-600 dark:text-slate-400">{{ '{{' }} description {{ '}}' }}</p>
+    </header>
+    <div class="flex flex-wrap gap-3">
+      <RouterLink
+        :to="user ? '/account/profile' : '/account/login'"
+        class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900"
+      >
+        {{ '{{' }} user ? "Your profile →" : "Sign in →" {{ '}}' }}
+      </RouterLink>
+{% if cookiecutter.api_layer != 'none' -%}
+      <a href="/api/docs" target="_blank" rel="noreferrer" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">🚀 API docs</a>
+{%- endif %}
+      <RouterLink to="/about" class="rounded-md px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800">Learn more</RouterLink>
+    </div>
+  </section>
+</template>

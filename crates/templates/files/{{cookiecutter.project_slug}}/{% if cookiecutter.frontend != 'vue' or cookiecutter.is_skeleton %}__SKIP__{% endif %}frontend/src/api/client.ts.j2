@@ -1,0 +1,59 @@
+{%- if cookiecutter.has_typed_api %}
+/**
+ * Typed API client for `/api/*`.
+ *
+ * Backend is {{ cookiecutter.api_layer }} — Django session authentication.
+ *   - Ninja: https://django-ninja.dev/guides/authentication/
+ *   - DRF:   https://www.django-rest-framework.org/api-guide/authentication/
+ *
+ * Regenerate the schema:    pnpm openapi:gen
+ */
+
+import { csrfHeaders } from "~/auth/csrf";
+
+export class HttpError extends Error {
+  constructor(public status: number, public body: unknown) {
+    super(`HTTP ${status}`);
+    this.name = "HttpError";
+  }
+}
+
+const BASE = "/api";
+
+export async function apiGet<T>(path: string): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!r.ok) throw new HttpError(r.status, await r.json().catch(() => null));
+  return (await r.json()) as T;
+}
+
+export async function apiSend<T>(
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, {
+    method,
+    credentials: "include",
+    headers: csrfHeaders({ Accept: "application/json" }),
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!r.ok) throw new HttpError(r.status, await r.json().catch(() => null));
+  if (r.status === 204) return undefined as T;
+  return (await r.json()) as T;
+}
+
+export async function fetchMe(): Promise<{
+  id: number;
+  email: string;
+  full_name: string;
+  is_staff: boolean;
+}> {
+  return apiGet("/me");
+}
+{% else %}
+// No API layer was selected for this project.
+export {};
+{% endif -%}
