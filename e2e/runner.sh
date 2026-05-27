@@ -41,6 +41,13 @@ if [[ "${1:-}" == "--stop" ]]; then
             kill "$pid" 2>/dev/null || true
         done < "$pidfile"
         rm -f "$pidfile"
+        # Drop any ephemeral Postgres container provisioned for this scenario.
+        pg_container_file="$(dirname "$pidfile")/.pg-container"
+        if [[ -f "$pg_container_file" ]]; then
+            container=$(cat "$pg_container_file")
+            docker rm -f "$container" >/dev/null 2>&1 || true
+            rm -f "$pg_container_file"
+        fi
     done
     exit 0
 fi
@@ -87,12 +94,47 @@ echo "    → $PROJ_DIR"
 echo "↻  uv sync…"
 (cd "$PROJ_DIR" && uv sync --quiet) > "$LOGS/uv-sync.log" 2>&1
 
+# --- 2b) database URL --------------------------------------------------------
+# Postgres recipes need a running DB; sqlite recipes use a local file. Detect
+# by `psycopg` presence in the rendered pyproject.toml. The Postgres path
+# spins up an ephemeral, scenario-scoped Docker container (postgres:18-alpine)
+# so we never touch the host's existing PG cluster or leak credentials.
+DB_URL="sqlite:///./db.sqlite3"
+if grep -q '"psycopg' "$PROJ_DIR/pyproject.toml" 2>/dev/null; then
+    PG_CONTAINER="bakery-e2e-pg-${SCENARIO//[^a-z0-9]/_}"
+    PG_PASSWORD="e2e-only-not-secret"
+    PG_DB=bakery_e2e
+    echo "↻  starting Postgres 18 in container $PG_CONTAINER (ephemeral host port)…"
+    docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
+    # `-p 127.0.0.1::5432` asks Docker to assign a free host port — avoids
+    # collisions with other Postgres containers (axionore-local-postgres,
+    # horus-postgres, etc.) on the host. We read the assigned port back below.
+    docker run --rm -d --name "$PG_CONTAINER" \
+        -e POSTGRES_PASSWORD="$PG_PASSWORD" \
+        -e POSTGRES_DB="$PG_DB" \
+        -p '127.0.0.1::5432' \
+        postgres:18-alpine >/dev/null
+    echo "$PG_CONTAINER" > "$SCRATCH/.pg-container"
+    PG_PORT=$(docker port "$PG_CONTAINER" 5432/tcp | head -1 | sed 's/.*://')
+    [[ -n "$PG_PORT" ]] || { echo "✘  failed to read assigned Postgres port" >&2; exit 1; }
+    echo "    → host port :$PG_PORT"
+    # Wait for `pg_isready` inside the container.
+    for _ in $(seq 1 30); do
+        if docker exec "$PG_CONTAINER" pg_isready -U postgres -d "$PG_DB" >/dev/null 2>&1; then
+            echo "    ✓ Postgres ready"
+            break
+        fi
+        sleep 1
+    done
+    DB_URL="postgres://postgres:$PG_PASSWORD@127.0.0.1:$PG_PORT/$PG_DB"
+fi
+
 cat > "$PROJ_DIR/.env" <<EOF
 DJANGO_SETTINGS_MODULE=config.settings.local
 DJANGO_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(48))")
 DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-DATABASE_URL=sqlite:///./db.sqlite3
+DATABASE_URL=$DB_URL
 USE_DEBUG_TOOLBAR=False
 STAFF_MFA_REQUIRED=False
 PWNED_PASSWORDS_ENABLED=False
