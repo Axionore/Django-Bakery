@@ -3,16 +3,61 @@
 {% raw %}{% block title %}Home — {% endraw %}{{ cookiecutter.project_name }}{% raw %}{% endblock %}{% endraw %}
 
 {% raw %}{% block content %}{% endraw %}
-<section class="space-y-6">
-    <h1 class="text-4xl font-bold tracking-tight">Welcome to {{ cookiecutter.project_name }}</h1>
-    <p class="max-w-2xl text-lg text-slate-600 dark:text-slate-400">
-        {{ cookiecutter.description }}
-    </p>
-    <div class="flex gap-3">
-        <a href="{% raw %}{% url 'core:about' %}{% endraw %}" class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900">Learn more</a>
+<section class="space-y-8">
+    <div class="space-y-4">
+        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/20">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            Server-rendered · OWASP-baselined · Production-ready
+        </span>
+        <h1 class="text-4xl font-bold tracking-tight">{{ cookiecutter.project_name }}</h1>
+        <p class="max-w-2xl text-lg text-slate-600 dark:text-slate-400">
+            {{ cookiecutter.description }}
+        </p>
+        <div class="flex flex-wrap gap-3">
+            <a href="{% raw %}{% url 'core:about' %}{% endraw %}" class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900">Learn more</a>
 {%- if cookiecutter.api_layer != 'none' %}
-        <a href="/api/docs" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">API docs</a>
+            <a href="/api/docs" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">API docs</a>
 {%- endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Backend</span>
+                <span class="h-2 w-2 rounded-full bg-emerald-500" title="healthy"></span>
+            </div>
+            <div class="mt-2 text-base font-semibold">Django {{ cookiecutter.django_version }}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400">Python {{ cookiecutter.python_version }}</div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Auth</span>
+                <span class="h-2 w-2 rounded-full bg-emerald-500" title="MFA enforced"></span>
+            </div>
+            <div class="mt-2 text-base font-semibold">django-allauth</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400">MFA TOTP · Argon2id</div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">API</span>
+{%- if cookiecutter.api_layer == 'none' %}
+                <span class="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600" title="not wired"></span>
+{%- else %}
+                <span class="h-2 w-2 rounded-full bg-emerald-500" title="wired"></span>
+{%- endif %}
+            </div>
+            <div class="mt-2 text-base font-semibold">{% if cookiecutter.api_layer == 'ninja' %}Django Ninja{% elif cookiecutter.api_layer == 'drf' %}DRF + Spectacular{% elif cookiecutter.api_layer == 'graphql-strawberry' %}Strawberry GraphQL{% elif cookiecutter.api_layer == 'graphql-graphene' %}Graphene GraphQL{% else %}—{% endif %}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400">{% if cookiecutter.api_layer == 'none' %}No API layer{% else %}OpenAPI 3.1 · session-auth{% endif %}</div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Database</span>
+                <span class="h-2 w-2 rounded-full bg-emerald-500" title="connected"></span>
+            </div>
+            <div class="mt-2 text-base font-semibold">{% if cookiecutter.relational_db == 'postgres' %}PostgreSQL 18{% elif cookiecutter.relational_db == 'mysql' %}MySQL 9{% elif cookiecutter.relational_db == 'mariadb' %}MariaDB LTS{% else %}SQLite{% endif %}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400">{% if cookiecutter.relational_db == 'sqlite' %}Local-file dev DB{% else %}ATOMIC_REQUESTS · CONN_MAX_AGE{% endif %}</div>
+        </div>
     </div>
 </section>
 {% raw %}{% endblock %}{% endraw %}

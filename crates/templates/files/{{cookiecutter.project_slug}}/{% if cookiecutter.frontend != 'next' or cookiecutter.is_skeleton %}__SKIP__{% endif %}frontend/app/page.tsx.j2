@@ -1,11 +1,35 @@
 import Link from "next/link";
-import { Box, Button, Container, Flex, Heading, Text } from "@radix-ui/themes";
-import { ArrowRightIcon{% if cookiecutter.api_layer != 'none' %}, RocketIcon{% endif %} } from "@radix-ui/react-icons";
+import { Badge, Box, Button, Card, Container, Flex, Grid, Heading, Text } from "@radix-ui/themes";
+import { ArrowRightIcon, CheckCircledIcon, MinusCircledIcon{% if cookiecutter.api_layer != 'none' %}, RocketIcon{% endif %} } from "@radix-ui/react-icons";
 
 import { currentUser } from "~/lib/auth/server";
 
 const NAME = "{{ cookiecutter.project_name }}";
 const DESCRIPTION = "{{ cookiecutter.description }}";
+
+const STACK_CARDS = [
+  {
+    label: "Backend",
+    title: "Django {{ cookiecutter.django_version }}",
+    sub: "Python {{ cookiecutter.python_version }}",
+  },
+  {
+    label: "Auth",
+    title: "django-allauth",
+    sub: "MFA TOTP · Argon2id",
+  },
+  {
+    label: "API",
+    title: "{% if cookiecutter.api_layer == 'ninja' %}Django Ninja{% elif cookiecutter.api_layer == 'drf' %}DRF + Spectacular{% elif cookiecutter.api_layer == 'graphql-strawberry' %}Strawberry GraphQL{% elif cookiecutter.api_layer == 'graphql-graphene' %}Graphene GraphQL{% else %}—{% endif %}",
+    sub: "{% if cookiecutter.api_layer == 'none' %}No API layer{% else %}OpenAPI 3.1 · session-auth{% endif %}",
+    cold: {{ 'true' if cookiecutter.api_layer == 'none' else 'false' }},
+  },
+  {
+    label: "Database",
+    title: "{% if cookiecutter.relational_db == 'postgres' %}PostgreSQL 18{% elif cookiecutter.relational_db == 'mysql' %}MySQL 9{% elif cookiecutter.relational_db == 'mariadb' %}MariaDB LTS{% else %}SQLite{% endif %}",
+    sub: "{% if cookiecutter.relational_db == 'sqlite' %}Local-file dev DB{% else %}ATOMIC_REQUESTS · CONN_MAX_AGE{% endif %}",
+  },
+];
 
 {% raw %}
 export default async function HomePage() {
@@ -13,8 +37,13 @@ export default async function HomePage() {
   const user = await currentUser();
   return (
     <Container size="3">
-      <Flex direction="column" gap="6" py="6">
+      <Flex direction="column" gap="7" py="6">
         <Box>
+          <Box mb="3">
+            <Badge color="green" variant="soft" radius="full">
+              <CheckCircledIcon /> Next.js App Router · OWASP-baselined · Production-ready
+            </Badge>
+          </Box>
           <Heading size="9" mb="3">
             {NAME}
           </Heading>
@@ -43,6 +72,26 @@ export default async function HomePage() {
             <Link href="/about">Learn more</Link>
           </Button>
         </Flex>
+        <Grid columns={{ initial: "1", sm: "2", lg: "4" }} gap="3">
+          {STACK_CARDS.map((c) => (
+            <Card key={c.label} size="2">
+              <Flex direction="column" gap="2">
+                <Flex justify="between" align="center">
+                  <Text size="1" weight="medium" color="gray" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    {c.label}
+                  </Text>
+                  {c.cold ? (
+                    <MinusCircledIcon color="var(--gray-9)" />
+                  ) : (
+                    <CheckCircledIcon color="var(--green-9)" />
+                  )}
+                </Flex>
+                <Text size="3" weight="bold">{c.title}</Text>
+                <Text size="2" color="gray">{c.sub}</Text>
+              </Flex>
+            </Card>
+          ))}
+        </Grid>
       </Flex>
     </Container>
   );
