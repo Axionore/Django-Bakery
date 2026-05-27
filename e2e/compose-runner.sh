@@ -39,7 +39,11 @@ if [[ "${1:-}" == "--stop" ]]; then
         if [[ -f "$proj_root/compose.local.yml" ]]; then
             echo "↻  tearing down $name"
             local_files=(-f compose.local.yml)
-            [[ -f "$proj_root/compose.override.yml" ]] && local_files+=(-f compose.override.yml)
+            # `compose.e2e.yml` is our explicit harness-only override (it is
+            # NOT named `compose.override.yml` — that filename is auto-loaded
+            # by docker compose and would leak ephemeral port remaps into
+            # whatever any user later runs from this rendered project tree).
+            [[ -f "$proj_root/compose.e2e.yml" ]] && local_files+=(-f compose.e2e.yml)
             (cd "$proj_root" && docker compose "${local_files[@]}" down -v --remove-orphans 2>&1) | tail -5 || true
         fi
     done
@@ -98,14 +102,17 @@ CELERY_BROKER_URL=redis://redis:6379/0
 EOF
 
 # --- 3) docker compose up --build -d ----------------------------------------
-# Build an override that remaps DB host ports up by +50000 so this e2e doesn't
-# collide with whatever Postgres/MySQL is already running on the host. Only
-# include entries for services the base compose actually declares — compose
-# fails with "service has neither an image nor a build context" if the override
-# names a service that doesn't exist in the base.
+# Build a harness-only override that asks Docker to assign free ephemeral host
+# ports so this e2e doesn't collide with whatever Postgres/MySQL is already
+# running on the host. Written as `compose.e2e.yml` (NOT `compose.override.yml`,
+# which docker compose auto-loads — that filename would leak the harness's
+# port-remap into any later `docker compose up` the user runs in the rendered
+# project tree). Pass it explicitly via `-f` instead.
+#
+# Only include entries for services the base compose actually declares —
+# compose errors with "service has neither image nor build context" if the
+# override names a service that doesn't exist in the base.
 {
-    # Empty host port → Docker auto-assigns a free ephemeral port. Avoids
-    # collisions with whatever the host already has on 5432/3306/8000.
     echo 'services:'
     echo '  django:'
     echo '    ports: !override'
@@ -119,14 +126,14 @@ EOF
     if grep -qE '^  mariadb:' "$PROJ_DIR/compose.local.yml"; then
         printf '  mariadb:\n    ports: !override\n      - "127.0.0.1::3306"\n'
     fi
-} > "$PROJ_DIR/compose.override.yml"
+} > "$PROJ_DIR/compose.e2e.yml"
 
 echo "↻  docker compose up --build -d  (first build can take 4-6 min — uv sync + apt + pnpm)…"
-(cd "$PROJ_DIR" && docker compose -f compose.local.yml -f compose.override.yml up --build -d) > "$LOGS/compose-up.log" 2>&1 \
+(cd "$PROJ_DIR" && docker compose -f compose.local.yml -f compose.e2e.yml up --build -d) > "$LOGS/compose-up.log" 2>&1 \
     || { echo "✘  docker compose up failed — see $LOGS/compose-up.log"; tail -30 "$LOGS/compose-up.log" >&2; exit 1; }
 
 # Read the ephemeral host port Docker assigned to django:8000.
-DJANGO_PORT=$(cd "$PROJ_DIR" && docker compose -f compose.local.yml -f compose.override.yml port django 8000 2>/dev/null | sed 's/.*://')
+DJANGO_PORT=$(cd "$PROJ_DIR" && docker compose -f compose.local.yml -f compose.e2e.yml port django 8000 2>/dev/null | sed 's/.*://')
 [[ -n "$DJANGO_PORT" ]] || { echo "✘  could not read assigned django host port" >&2; exit 1; }
 echo "    Django assigned host port: $DJANGO_PORT"
 

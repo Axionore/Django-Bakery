@@ -243,14 +243,23 @@ cd "$ROOT"
 
 # --- 5) wait for Django to answer ------------------------------------------
 echo -n "↻  waiting for Django"
+django_ready=0
 for _ in $(seq 1 30); do
     if curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8765/healthz/ 2>/dev/null | grep -q 200; then
         echo " ✓"
+        django_ready=1
         break
     fi
     sleep 1
     echo -n "."
 done
+if [[ $django_ready -eq 0 ]]; then
+    echo " ✘"
+    echo "✘  Django did not return 200 on /healthz/ within 30s" >&2
+    echo "   last 30 lines of runserver.log:" >&2
+    tail -30 "$LOGS/runserver.log" >&2 || true
+    exit 1
+fi
 
 # --- 6) frontend (if any) --------------------------------------------------
 if [[ -d "$PROJ_DIR/frontend" ]]; then
@@ -291,14 +300,23 @@ EOF
     cd "$ROOT"
 
     echo -n "↻  waiting for frontend"
+    frontend_ready=0
     for _ in $(seq 1 60); do
         if curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$FRONTEND_PORT/" 2>/dev/null | grep -qE '2..|3..'; then
             echo " ✓"
+            frontend_ready=1
             break
         fi
         sleep 2
         echo -n "."
     done
+    if [[ $frontend_ready -eq 0 ]]; then
+        echo " ✘"
+        echo "✘  Frontend on :$FRONTEND_PORT did not answer within 120s" >&2
+        echo "   last 30 lines of frontend-dev.log:" >&2
+        tail -30 "$LOGS/frontend-dev.log" >&2 || true
+        exit 1
+    fi
 fi
 
 echo
