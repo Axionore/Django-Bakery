@@ -159,7 +159,12 @@ TENANT_APPS = [
 {%- endif %}
 ]
 # INSTALLED_APPS is the union — order matters; django-tenants first wins.
-INSTALLED_APPS = list({*SHARED_APPS, *TENANT_APPS})
+# Preserve SHARED_APPS' order (django_tenants is first by construction) and
+# append only the tenant-scoped apps that aren't already shared. A set-flatten
+# would destroy ordering — Python `set` iteration is hash-based, so
+# `list({…})` returns elements in implementation-defined order; on multi-tenant
+# projects that loses the `django_tenants must be first` invariant.
+INSTALLED_APPS = SHARED_APPS + [app for app in TENANT_APPS if app not in SHARED_APPS]
 TENANT_MODEL = "tenants.Tenant"
 TENANT_DOMAIN_MODEL = "tenants.Domain"
 {%- else %}
