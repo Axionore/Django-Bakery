@@ -65,7 +65,7 @@ function sanitize(v: string) {
       <div v-if="uri" class="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
         <img :src="qrSrc!" alt="Two-factor QR code" width="220" height="220" class="block" />
         <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
-          Secret: <code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">{{ '{{' }} secret {{ '}}' }}</code>
+          Secret: <code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800">{{ secret }}</code>
         </p>
       </div>
       <p v-else class="text-sm text-slate-500">Generating…</p>
@@ -74,7 +74,7 @@ function sanitize(v: string) {
         role="alert"
         class="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
       >
-        {{ '{{' }} error {{ '}}' }}
+        {{ error }}
       </div>
       <form aria-label="Confirm MFA" class="space-y-3" @submit="onConfirm">
         <label class="block text-sm font-medium">Enter the 6-digit code to confirm</label>
@@ -93,7 +93,7 @@ function sanitize(v: string) {
           :disabled="busy"
           class="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
         >
-          {{ '{{' }} busy ? "Activating…" : "Activate MFA" {{ '}}' }}
+          {{ busy ? "Activating…" : "Activate MFA" }}
         </button>
       </form>
     </template>

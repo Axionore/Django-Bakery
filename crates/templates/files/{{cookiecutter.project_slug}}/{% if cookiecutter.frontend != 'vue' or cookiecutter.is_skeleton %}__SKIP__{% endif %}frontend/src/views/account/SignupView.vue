@@ -67,7 +67,7 @@ async function onSubmit(e: Event) {
       role="alert"
       class="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
     >
-      {{ '{{' }} error {{ '}}' }}
+      {{ error }}
     </div>
     <form aria-label="Sign up" class="space-y-3" @submit="onSubmit">
       <label class="block text-sm">
@@ -79,7 +79,7 @@ async function onSubmit(e: Event) {
           required
           class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
         />
-        <p v-if="fieldErrors.email" class="mt-1 text-xs text-red-600">{{ '{{' }} fieldErrors.email?.join(" · ") {{ '}}' }}</p>
+        <p v-if="fieldErrors.email" class="mt-1 text-xs text-red-600">{{ fieldErrors.email?.join(" · ") }}</p>
       </label>
       <label class="block text-sm">
         <span class="font-medium">Password</span>
@@ -91,7 +91,7 @@ async function onSubmit(e: Event) {
           class="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-900"
         />
         <p class="mt-1 text-xs text-slate-500">At least 12 characters.</p>
-        <p v-if="fieldErrors.password" class="mt-1 text-xs text-red-600">{{ '{{' }} fieldErrors.password?.join(" · ") {{ '}}' }}</p>
+        <p v-if="fieldErrors.password" class="mt-1 text-xs text-red-600">{{ fieldErrors.password?.join(" · ") }}</p>
       </label>
       <label class="block text-sm">
         <span class="font-medium">Confirm password</span>
@@ -108,7 +108,7 @@ async function onSubmit(e: Event) {
         :disabled="busy"
         class="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
       >
-        {{ '{{' }} busy ? "Creating…" : "Create account" {{ '}}' }}
+        {{ busy ? "Creating…" : "Create account" }}
       </button>
     </form>
     <p class="text-sm text-slate-600 dark:text-slate-400">

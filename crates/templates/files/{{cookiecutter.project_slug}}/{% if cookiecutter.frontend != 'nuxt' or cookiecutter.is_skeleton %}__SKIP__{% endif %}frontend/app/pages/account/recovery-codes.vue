@@ -29,7 +29,7 @@ onMounted(async () => {
       v-else
       class="space-y-2 rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-sm dark:border-slate-800 dark:bg-slate-900"
     >
-      <div v-for="c in codes" :key="c" class="select-all">{{ '{{' }} c {{ '}}' }}</div>
+      <div v-for="c in codes" :key="c" class="select-all">{{ c }}</div>
     </div>
   </section>
 </template>

@@ -5,7 +5,7 @@
         <slot />
       </div>
       <p class="mt-4 text-center text-xs text-slate-500">
-        <RouterLink to="/" class="underline">← Back to {{ '{{' }} new Date().getFullYear() ? "home" : "" {{ '}}' }}</RouterLink>
+        <RouterLink to="/" class="underline">← Back to {{ new Date().getFullYear() ? "home" : "" }}</RouterLink>
       </p>
     </main>
   </div>

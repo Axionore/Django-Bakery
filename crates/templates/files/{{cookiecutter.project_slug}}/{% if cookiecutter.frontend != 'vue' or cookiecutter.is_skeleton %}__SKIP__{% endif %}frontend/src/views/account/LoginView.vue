@@ -61,7 +61,7 @@ async function onSubmit(e: Event) {
       role="alert"
       class="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
     >
-      {{ '{{' }} error {{ '}}' }}
+      {{ error }}
     </div>
     <form aria-label="Sign in" class="space-y-3" @submit="onSubmit">
       <label class="block text-sm">
@@ -89,7 +89,7 @@ async function onSubmit(e: Event) {
         :disabled="busy"
         class="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
       >
-        {{ '{{' }} busy ? "Signing in…" : "Sign in" {{ '}}' }}
+        {{ busy ? "Signing in…" : "Sign in" }}
       </button>
     </form>
     <p class="text-sm text-slate-600 dark:text-slate-400">
