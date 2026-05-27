@@ -1,0 +1,63 @@
+"""Project-level security middleware.
+
+Currently emits a strict `Permissions-Policy` header on every response. Tighten or
+loosen per-feature in `PERMISSIONS_POLICY` (set in settings) — the defaults deny
+every powerful browser API we don't currently use.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+
+from django.conf import settings
+from django.http import HttpRequest, HttpResponse
+
+
+# Permissions-Policy (formerly Feature-Policy). Empty allowlist `()` means "deny".
+# Spec: https://www.w3.org/TR/permissions-policy/
+# To enable a feature, change the value to `(self)` or `(self "https://example.com")`.
+_DEFAULT_POLICY: dict[str, str] = {
+    "accelerometer": "()",
+    "ambient-light-sensor": "()",
+    "autoplay": "()",
+    "battery": "()",
+    "camera": "()",
+    "display-capture": "()",
+    "document-domain": "()",
+    "encrypted-media": "()",
+    "fullscreen": "(self)",
+    "geolocation": "()",
+    "gyroscope": "()",
+    "keyboard-map": "()",
+    "magnetometer": "()",
+    "microphone": "()",
+    "midi": "()",
+    "navigation-override": "()",
+    "payment": "()",
+    "picture-in-picture": "()",
+    "publickey-credentials-get": "(self)",  # WebAuthn — keep allowed for MFA
+    "screen-wake-lock": "()",
+    "sync-xhr": "()",
+    "usb": "()",
+    "web-share": "()",
+    "xr-spatial-tracking": "()",
+}
+
+
+def _header_value() -> str:
+    overrides: dict[str, str] = getattr(settings, "PERMISSIONS_POLICY", {})
+    merged = {**_DEFAULT_POLICY, **overrides}
+    return ", ".join(f"{feature}={allow}" for feature, allow in merged.items())
+
+
+class PermissionsPolicyMiddleware:
+    """Add a `Permissions-Policy` header to every response."""
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+        self.header_value = _header_value()
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        response = self.get_response(request)
+        response.headers.setdefault("Permissions-Policy", self.header_value)
+        return response

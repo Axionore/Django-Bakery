@@ -29,7 +29,10 @@ CSRF_TRUSTED_ORIGINS = env.list(
     "CSRF_TRUSTED_ORIGINS",
     default=[f"https://{{ cookiecutter.domain_name }}"],
 )
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 14
+# 1-day sliding window (combined with SESSION_SAVE_EVERY_REQUEST=True in base.py).
+# Active users never see this; idle sessions expire after a day. Override per
+# product needs but keep < 7 days unless you've added device-trust controls.
+SESSION_COOKIE_AGE = 60 * 60 * 24
 
 # ---------------------------------------------------------------------------
 # Storage — static + media

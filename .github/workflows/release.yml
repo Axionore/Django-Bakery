@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
   packages: write
+  # Required by actions/attest-build-provenance to generate Sigstore attestations.
+  id-token: write
+  attestations: write
 
 jobs:
   release-binaries:
@@ -55,6 +58,12 @@ jobs:
             cp "target/${TARGET}/release/django-bakery" "dist/${name}"
             tar -C dist -czf "dist/${name}.tar.gz" "${name}"
           fi
+      - name: Generate build-provenance attestation (SLSA)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.target }}
@@ -95,7 +104,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - id: build-push
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: installer/Dockerfile
@@ -104,3 +114,9 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+      - name: Attest GHCR image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build-push.outputs.digest }}
+          push-to-registry: true

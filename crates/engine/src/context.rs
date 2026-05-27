@@ -166,6 +166,9 @@ impl Context {
         m.insert("postgres_password".into(), json!(secret_key(40)));
         m.insert("redis_password".into(), json!(secret_key(32)));
         m.insert("traefik_basic_auth".into(), json!(secret_key(32)));
+        // Non-secret but unguessable: admin URL suffix. Defends against `/admin/` scanners
+        // and reduces the noise of automated brute-force on the auth endpoint.
+        m.insert("admin_url_suffix".into(), json!(secret_key(16).to_lowercase()));
         m.insert(
             "bakery_version".into(),
             json!(env!("CARGO_PKG_VERSION")),

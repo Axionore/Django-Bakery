@@ -42,5 +42,8 @@ CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"
 # Templates: don't load debug toolbar etc.
 DEBUG_TOOLBAR_CONFIG = {"SHOW_TOOLBAR_CALLBACK": lambda request: False}
 
+# Tests must be offline — never hit HIBP from CI.
+PWNED_PASSWORDS = {"ENABLED": False}
+
 # Tests do not need migrations to run via real DDL when using --reuse-db.
 # Override per-app via pytest marks if a specific test needs raw SQL.

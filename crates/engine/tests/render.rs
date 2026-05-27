@@ -433,6 +433,93 @@ fn flower_local_start_has_no_default_credentials() {
 }
 
 #[test]
+fn rate_limits_cover_signup_and_reset() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let body = read(&root, "config/settings/base.py");
+    for key in ["\"login_failed\":", "\"signup\":", "\"reset_password\":"] {
+        assert!(
+            body.contains(key),
+            "ACCOUNT_RATE_LIMITS must rate-limit {key} too, not just login_failed"
+        );
+    }
+}
+
+#[test]
+fn pwned_password_validator_present() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let body = read(&root, "config/settings/base.py");
+    assert!(
+        body.contains("pwned_passwords_django.validators.PwnedPasswordsValidator"),
+        "AUTH_PASSWORD_VALIDATORS must include the breached-password (HIBP) check"
+    );
+    let test_settings = read(&root, "config/settings/test.py");
+    assert!(
+        test_settings.contains("PWNED_PASSWORDS = {\"ENABLED\": False}"),
+        "test settings must disable HIBP lookup so CI runs offline"
+    );
+}
+
+#[test]
+fn permissions_policy_middleware_wired() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let base = read(&root, "config/settings/base.py");
+    assert!(
+        base.contains("apps.core.middleware.PermissionsPolicyMiddleware"),
+        "PermissionsPolicyMiddleware must be in MIDDLEWARE"
+    );
+    assert_present(&root, "apps/core/middleware.py");
+    let mw = read(&root, "apps/core/middleware.py");
+    for feature in ["camera", "microphone", "geolocation", "payment"] {
+        let token = format!("\"{feature}\": \"()\"");
+        assert!(
+            mw.contains(&token),
+            "default policy must deny {feature}; missing `{token}`"
+        );
+    }
+}
+
+#[test]
+fn admin_url_has_random_suffix() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let env_example = read(&root, ".env.example");
+    // The example must contain `admin-<16-lowercase-hex-ish>/` — NOT bare `admin/`.
+    let line = env_example
+        .lines()
+        .find(|l| l.starts_with("DJANGO_ADMIN_URL="))
+        .expect("DJANGO_ADMIN_URL missing from .env.example");
+    let value = line.trim_start_matches("DJANGO_ADMIN_URL=");
+    assert!(
+        value.starts_with("admin-") && value.ends_with("/") && value.len() > "admin-/".len() + 8,
+        "DJANGO_ADMIN_URL must be a random-suffixed path, got {value:?}"
+    );
+    assert_ne!(value, "admin/", "the unguessable default is the whole point");
+}
+
+#[test]
+fn session_lifetime_is_explicit() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let base = read(&root, "config/settings/base.py");
+    let prod = read(&root, "config/settings/production.py");
+    assert!(
+        base.contains("ACCOUNT_SESSION_REMEMBER = None"),
+        "remember-me must be explicit (None), not auto-on (True)"
+    );
+    assert!(
+        base.contains("SESSION_SAVE_EVERY_REQUEST = True"),
+        "active sessions must slide forward"
+    );
+    assert!(
+        prod.contains("SESSION_COOKIE_AGE = 60 * 60 * 24\n"),
+        "production session lifetime should be 1 day, not 14"
+    );
+}
+
+#[test]
 fn auth_signals_wired_for_audit_logging() {
     let recipe = Recipe::defaults();
     let (_tmp, root) = render_recipe(&recipe);

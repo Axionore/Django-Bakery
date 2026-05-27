@@ -140,7 +140,16 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 12}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    # HaveIBeenPwned check — rejects passwords found in any breach corpus. Uses HIBP's
+    # k-anonymity API; only the first 5 chars of the SHA-1 hash are sent. Disable in
+    # offline test environments via PWNED_PASSWORDS_ENABLED=False in settings.
+    {"NAME": "pwned_passwords_django.validators.PwnedPasswordsValidator"},
 ]
+PWNED_PASSWORDS = {
+    "ENABLED": env.bool("PWNED_PASSWORDS_ENABLED", default=True),
+    "MIN_BREACH_COUNT": 1,
+    "REQUEST_TIMEOUT": 2,  # seconds — fail open on slow API
+}
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
@@ -157,8 +166,25 @@ ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
-ACCOUNT_SESSION_REMEMBER = True
-ACCOUNT_RATE_LIMITS = {"login_failed": "5/5m"}
+# `None` makes "remember me" an explicit checkbox at login (no automatic 14-day session).
+# Set to True only if the product spec calls for a permanent default; the security tax
+# is a 14-day session-hijack window after device theft.
+ACCOUNT_SESSION_REMEMBER = None
+# Slide the session forward on every request so an actively-used session never expires;
+# but if the user walks away, the cookie still dies at SESSION_COOKIE_AGE.
+SESSION_SAVE_EVERY_REQUEST = True
+ACCOUNT_RATE_LIMITS = {
+    # Anti-credential-stuffing: 5 failed logins per 5 minutes per IP.
+    "login_failed": "5/5m",
+    # Anti-bot-signup: 10 fresh accounts per hour per IP.
+    "signup": "10/1h",
+    # Reset abuse: 5 password-reset requests per hour per IP/email.
+    "reset_password": "5/1h",
+    # Email confirmation re-send.
+    "confirm_email": "3/1h",
+    # Change-email request.
+    "change_email": "5/1h",
+}
 
 # MFA — TOTP (authenticator apps) + recovery codes. WebAuthn slot ready to enable.
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
@@ -202,6 +228,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "apps.users.middleware.RequireMfaForStaffMiddleware",
+    "apps.core.middleware.PermissionsPolicyMiddleware",
     "csp.middleware.CSPMiddleware",
 {%- if cookiecutter.use_feature_flags %}
     "waffle.middleware.WaffleMiddleware",
@@ -290,7 +317,7 @@ EMAIL_TIMEOUT = 5
 # ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------
-ADMIN_URL = env("DJANGO_ADMIN_URL", default="admin/")
+ADMIN_URL = env("DJANGO_ADMIN_URL", default="admin-{{ bakery.admin_url_suffix }}/")
 ADMINS = [("{{ cookiecutter.author_name }}", "{{ cookiecutter.author_email }}")]
 MANAGERS = ADMINS
 
@@ -347,12 +374,32 @@ structlog.configure(
     cache_logger_on_first_use=True,
 )
 {%- else %}
+# Structured JSON logging even without the full OpenTelemetry / structlog stack —
+# SIEM ingestion + incident reconstruction need consistent fields. Use plain text
+# in dev (DEBUG=True) for readability; JSON in everything else.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {"verbose": {"format": "%(levelname)s %(asctime)s %(module)s %(message)s"}},
-    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "verbose"}},
+    "formatters": {
+        "json": {
+            "()": "pythonjsonlogger.json.JsonFormatter",
+            "fmt": "%(asctime)s %(levelname)s %(name)s %(message)s",
+            "rename_fields": {"asctime": "timestamp", "levelname": "level", "name": "logger"},
+        },
+        "verbose": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose" if DEBUG else "json",
+        }
+    },
     "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        "{{ cookiecutter.project_slug }}": {"level": "INFO", "propagate": True},
+        "django.security": {"level": "WARNING", "propagate": True},
+        "django.request": {"level": "WARNING", "propagate": True},
+    },
 }
 {%- endif %}
 

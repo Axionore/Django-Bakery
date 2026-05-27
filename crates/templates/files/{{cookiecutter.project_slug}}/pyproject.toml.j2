@@ -22,6 +22,11 @@ dependencies = [
     "django-csp>=4.0",
     "django-cors-headers>=4.6",
     "django-ratelimit>=4.1",
+    # Pwned-passwords validator hits HIBP's k-anonymity API on signup/password-change.
+    # No password ever leaves the server; only the SHA-1 prefix (first 5 chars) is sent.
+    "pwned-passwords-django>=2.1",
+    # Always-on structured JSON logging (even without full OpenTelemetry stack).
+    "python-json-logger>=3.2",
     "django-extensions>=4.0",
     "argon2-cffi>=23.1",
     "Pillow>=11.1",
