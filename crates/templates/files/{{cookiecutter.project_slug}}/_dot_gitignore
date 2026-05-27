@@ -77,3 +77,9 @@ coverage.xml
 
 # Sentry / observability
 .sentry-cli/
+{% if cookiecutter.frontend == 'htmx-alpine' and cookiecutter.css_framework == 'tailwind' %}
+# Tailwind v4 build output + Node-only build deps
+# (`app.css` is the SOURCE; `app.compiled.css` is the build artifact).
+static/css/app.compiled.css
+node_modules/
+{% endif %}

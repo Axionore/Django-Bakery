@@ -65,9 +65,10 @@ echo "===================================================================="
 # scenarios would silently land on whichever backend bound first.
 "$0" --stop 2>/dev/null || true
 # Belt-and-braces: kill any straggler holding :8765 or the SPA dev ports.
+# `lsof -ti` misses ss-only-visible sockets on some kernels — `fuser -k` is the
+# fallback that's reliable across discovery layers.
 for port in 8765 5173 3000; do
-    pids=$(lsof -ti tcp:$port 2>/dev/null || true)
-    [[ -n "$pids" ]] && kill $pids 2>/dev/null || true
+    fuser -k "${port}/tcp" 2>/dev/null || true
 done
 sleep 1
 
@@ -104,6 +105,22 @@ echo "↻  makemigrations users…"
 # --- 3b) migrate -----------------------------------------------------------
 echo "↻  migrate…"
 (cd "$PROJ_DIR" && uv run python manage.py migrate --noinput) > "$LOGS/migrate.log" 2>&1
+
+# --- 3c) css build (htmx + tailwind only — others compile via Vite/Nuxt) ---
+# A top-level `package.json` only exists when the recipe selected htmx-alpine
+# + tailwind. Compile static/css/app.css → app.compiled.css before serving.
+if [[ -f "$PROJ_DIR/package.json" ]]; then
+    echo "↻  pnpm install (tailwind CLI)…"
+    cat > "$PROJ_DIR/.npmrc" <<'EOF'
+verify-deps-before-run=false
+EOF
+    (cd "$PROJ_DIR" && pnpm install --ignore-scripts --reporter=silent) \
+        > "$LOGS/pnpm-install-root.log" 2>&1
+    [[ -d "$PROJ_DIR/node_modules" ]] || { echo "✘  root pnpm install left no node_modules — see $LOGS/pnpm-install-root.log" >&2; exit 1; }
+    echo "↻  tailwindcss build…"
+    (cd "$PROJ_DIR" && pnpm css:build) > "$LOGS/css-build.log" 2>&1
+    [[ -f "$PROJ_DIR/static/css/app.compiled.css" ]] || { echo "✘  app.compiled.css missing — see $LOGS/css-build.log" >&2; exit 1; }
+fi
 
 # --- 4) backend runserver in the background -------------------------------
 echo "↻  starting Django on :8765…"

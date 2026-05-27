@@ -11,7 +11,21 @@ PROJECT := "{{ cookiecutter.project_slug }}"
 # Install / sync Python dependencies.
 sync:
     uv sync
+{% if cookiecutter.frontend == 'htmx-alpine' and cookiecutter.css_framework == 'tailwind' %}
+# --- css build (Tailwind v4) ---------------------------------------------
+# Install the Tailwind CLI (one-time per machine / clone).
+css-install:
+    pnpm install --ignore-scripts
 
+# Compile `static/css/app.css` → `static/css/app.compiled.css` (minified).
+# Run after pulling, after editing the Tailwind source, and before deploy.
+css-build:
+    pnpm css:build
+
+# Watch the source file and recompile on change — leave this running during dev.
+css-watch:
+    pnpm css:watch
+{% endif %}
 # Run the dev server (no Docker).
 serve:
     uv run python manage.py runserver 0.0.0.0:8000
