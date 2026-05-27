@@ -1,0 +1,122 @@
+"""Security-event audit log for authentication.
+
+Connects to django-allauth signals and Django's built-in `user_login_failed` to
+emit structured log records for every auth event. With `use_observability=True`
+these flow through `django-structlog` into the JSON log; without it they go to
+the default logger but still carry enough fields for SIEM ingestion.
+
+Critically: passwords are never logged. The login-failure handler logs the
+attempted email (so security ops can spot enumeration / credential-stuffing) and
+the source IP, but NOT the submitted credentials.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from allauth.account.signals import (
+    email_confirmed,
+    password_reset,
+    user_logged_in,
+    user_logged_out,
+    user_signed_up,
+)
+from django.contrib.auth.signals import user_login_failed
+from django.dispatch import receiver
+
+logger = logging.getLogger("{{ cookiecutter.project_slug }}.auth")
+
+
+def _client_ip(request: Any) -> str:
+    if request is None:
+        return "-"
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "-")
+
+
+def _ua(request: Any) -> str:
+    if request is None:
+        return "-"
+    return (request.META.get("HTTP_USER_AGENT") or "-")[:200]
+
+
+@receiver(user_logged_in)
+def on_login(sender, request, user, **_kwargs) -> None:
+    logger.info(
+        "auth.login",
+        extra={
+            "event": "auth.login",
+            "user_id": user.pk,
+            "email": user.email,
+            "ip": _client_ip(request),
+            "ua": _ua(request),
+        },
+    )
+
+
+@receiver(user_logged_out)
+def on_logout(sender, request, user, **_kwargs) -> None:
+    logger.info(
+        "auth.logout",
+        extra={
+            "event": "auth.logout",
+            "user_id": getattr(user, "pk", None),
+            "ip": _client_ip(request),
+        },
+    )
+
+
+@receiver(user_login_failed)
+def on_login_failed(sender, credentials, request=None, **_kwargs) -> None:
+    # `credentials` is a dict — DO NOT log the password key.
+    email = (credentials or {}).get("email") or (credentials or {}).get("username") or "-"
+    logger.warning(
+        "auth.login_failed",
+        extra={
+            "event": "auth.login_failed",
+            "email": email,
+            "ip": _client_ip(request),
+            "ua": _ua(request),
+        },
+    )
+
+
+@receiver(user_signed_up)
+def on_signup(sender, request, user, **_kwargs) -> None:
+    logger.info(
+        "auth.signup",
+        extra={
+            "event": "auth.signup",
+            "user_id": user.pk,
+            "email": user.email,
+            "ip": _client_ip(request),
+        },
+    )
+
+
+@receiver(password_reset)
+def on_password_reset(sender, request, user, **_kwargs) -> None:
+    logger.warning(
+        "auth.password_reset",
+        extra={
+            "event": "auth.password_reset",
+            "user_id": user.pk,
+            "email": user.email,
+            "ip": _client_ip(request),
+        },
+    )
+
+
+@receiver(email_confirmed)
+def on_email_confirmed(sender, request, email_address, **_kwargs) -> None:
+    logger.info(
+        "auth.email_confirmed",
+        extra={
+            "event": "auth.email_confirmed",
+            "email": email_address.email,
+            "ip": _client_ip(request),
+        },
+    )

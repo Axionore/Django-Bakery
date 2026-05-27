@@ -10,3 +10,8 @@ class UsersConfig(AppConfig):
     name = "apps.users"
     verbose_name = _("Users")
     default_auto_field = "django.db.models.BigAutoField"
+
+    def ready(self) -> None:
+        # Wire the auth-event audit log. Import-only side effect — receivers
+        # register themselves via @receiver decorators.
+        from apps.users import signals  # noqa: F401

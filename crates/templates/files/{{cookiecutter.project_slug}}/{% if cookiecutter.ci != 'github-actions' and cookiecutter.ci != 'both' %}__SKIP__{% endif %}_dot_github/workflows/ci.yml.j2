@@ -59,8 +59,11 @@ jobs:
 {%- endif %}
 
       - name: Audit dependencies
+        # `pip-audit --strict` fails the build on any advisory. To suppress a
+        # specific CVE add `--ignore-vuln <CVE>` with a documented reason; do
+        # NOT pipe to `|| true` — that defeats the gate entirely.
         run: |
-          uv tool run pip-audit --strict || true
+          uv tool run pip-audit --strict
           uv tool run --from gitleaks gitleaks dir . --no-banner --no-git
 
       - name: Run tests

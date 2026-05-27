@@ -14,7 +14,25 @@ ALLOWED_HOSTS = ["*"]
 # via @override_settings(STAFF_MFA_REQUIRED=True).
 STAFF_MFA_REQUIRED = False
 
-# Fast password hashing in tests
+# Fast password hashing in tests. MD5 is cryptographically broken; this is OK ONLY
+# because pytest is the one importing this module. Catch the dangerous case where
+# someone accidentally points DJANGO_SETTINGS_MODULE=config.settings.test at a
+# real environment (e.g. staging) — abort startup before any password is stored.
+import os as _os
+import sys as _sys
+
+if not (
+    _os.environ.get("PYTEST_CURRENT_TEST")
+    or _os.environ.get("CI")
+    or "pytest" in _sys.argv[0]
+    or any("pytest" in arg for arg in _sys.argv)
+):
+    raise RuntimeError(
+        "config.settings.test is for the pytest suite ONLY. "
+        "Detected non-test invocation — refusing to load MD5 password hasher. "
+        "Set DJANGO_SETTINGS_MODULE=config.settings.local or .production instead."
+    )
+
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 # In-memory locmem cache + collected email

@@ -36,10 +36,15 @@ from apps.api.schema import schema
 
 urlpatterns = [path("graphql/", GraphQLView.as_view(schema=schema))]
 {%- elif cookiecutter.api_layer == 'graphql-graphene' %}
+from django.conf import settings
 from django.urls import path
 from graphene_django.views import GraphQLView
 
-urlpatterns = [path("graphql/", GraphQLView.as_view(graphiql=True))]
+# GraphiQL UI + introspection only available in DEBUG. In production the endpoint
+# accepts queries but doesn't expose the schema interactively. To FULLY lock down
+# introspection in prod, also set GRAPHENE = {"SCHEMA": ..., "INTROSPECTION": False}
+# in your settings module.
+urlpatterns = [path("graphql/", GraphQLView.as_view(graphiql=settings.DEBUG))]
 {%- else %}
 from django.urls import path
 

@@ -1,0 +1,38 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+    labels: [dependencies, security]
+    commit-message:
+      prefix: "ci"
+      include: scope
+
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      rust-minor:
+        update-types: ["minor", "patch"]
+      rust-major:
+        update-types: ["major"]
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: "build"
+      include: scope
+
+  - package-ecosystem: docker
+    directory: /installer
+    schedule:
+      interval: weekly
+    labels: [dependencies, security]
+    commit-message:
+      prefix: "build"
+      include: scope

@@ -76,18 +76,35 @@ trap 'rm -rf "$tmp"' EXIT
 
 printf '↻  Downloading %s\n' "$url"
 curl -fsSL -o "$tmp/$archive"     "$url"
-curl -fsSL -o "$tmp/SHA256SUMS"   "$checksums_url" || printf '⚠  No SHA256SUMS file — skipping verification.\n'
 
-if [ -f "$tmp/SHA256SUMS" ]; then
-    expected=$(grep "  ${archive}$" "$tmp/SHA256SUMS" | awk '{print $1}')
-    if [ -n "$expected" ]; then
-        actual=$(sha256sum "$tmp/$archive" 2>/dev/null | awk '{print $1}' || shasum -a 256 "$tmp/$archive" | awk '{print $1}')
-        if [ "$expected" != "$actual" ]; then
-            printf '✘  SHA-256 mismatch:\n  expected %s\n  got      %s\n' "$expected" "$actual" >&2
-            exit 1
-        fi
-        printf '✔  SHA-256 verified.\n'
+# Integrity check is mandatory. SHA256SUMS MUST be present and MUST list this archive.
+# Opt out only via the explicit DJANGO_BAKERY_INSECURE_SKIP_VERIFY=1 env var.
+if ! curl -fsSL -o "$tmp/SHA256SUMS" "$checksums_url"; then
+    printf '✘  Could not download SHA256SUMS from %s — aborting.\n' "$checksums_url" >&2
+    if [ "${DJANGO_BAKERY_INSECURE_SKIP_VERIFY:-0}" != "1" ]; then
+        printf '   Set DJANGO_BAKERY_INSECURE_SKIP_VERIFY=1 to override (not recommended).\n' >&2
+        exit 1
     fi
+    printf '⚠  Continuing without verification (DJANGO_BAKERY_INSECURE_SKIP_VERIFY=1)\n' >&2
+else
+    expected=$(grep "  ${archive}$" "$tmp/SHA256SUMS" | awk '{print $1}' || true)
+    if [ -z "$expected" ]; then
+        printf '✘  Archive %s not listed in SHA256SUMS — aborting.\n' "$archive" >&2
+        exit 1
+    fi
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual=$(sha256sum "$tmp/$archive" | awk '{print $1}')
+    elif command -v shasum >/dev/null 2>&1; then
+        actual=$(shasum -a 256 "$tmp/$archive" | awk '{print $1}')
+    else
+        printf '✘  Neither sha256sum nor shasum is available — cannot verify.\n' >&2
+        exit 1
+    fi
+    if [ "$expected" != "$actual" ]; then
+        printf '✘  SHA-256 mismatch:\n  expected %s\n  got      %s\n' "$expected" "$actual" >&2
+        exit 1
+    fi
+    printf '✔  SHA-256 verified.\n'
 fi
 
 tar -xzf "$tmp/$archive" -C "$tmp"

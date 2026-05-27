@@ -57,7 +57,12 @@ services:
 
   redis:
     image: redis:8-alpine
-    command: redis-server --requirepass {{ bakery.redis_password }} --appendonly yes
+    # Password comes from the gitignored .env (REDIS_PASSWORD). Compose's $$ escape
+    # passes the literal `${REDIS_PASSWORD}` to the container's entrypoint, which
+    # the container's shell then resolves from its environment.
+    command: redis-server --requirepass $${REDIS_PASSWORD} --appendonly yes
+    env_file:
+      - .env
     volumes:
       - production_redis_data:/data
     restart: unless-stopped

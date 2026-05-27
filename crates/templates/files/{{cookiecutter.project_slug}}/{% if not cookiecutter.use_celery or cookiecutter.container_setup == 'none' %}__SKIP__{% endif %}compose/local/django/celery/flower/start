@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-exec celery -A config.celery_app flower --basic_auth="${CELERY_FLOWER_USER:-admin}:${CELERY_FLOWER_PASSWORD:-flower}"
+# Flower must NOT be reachable without credentials. The `:-` fallbacks were removed
+# deliberately — see SECURITY.md. Set CELERY_FLOWER_USER and CELERY_FLOWER_PASSWORD
+# in `.env` (already templated in .env.example).
+: "${CELERY_FLOWER_USER:?CELERY_FLOWER_USER must be set — see .env.example}"
+: "${CELERY_FLOWER_PASSWORD:?CELERY_FLOWER_PASSWORD must be set — see .env.example}"
+
+exec celery -A config.celery_app flower --basic_auth="${CELERY_FLOWER_USER}:${CELERY_FLOWER_PASSWORD}"

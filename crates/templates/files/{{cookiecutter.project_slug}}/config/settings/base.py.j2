@@ -22,7 +22,23 @@ if env_file.is_file():
 # ---------------------------------------------------------------------------
 # Core
 # ---------------------------------------------------------------------------
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-fallback-only-for-checks")
+SECRET_KEY = env("DJANGO_SECRET_KEY", default=None)
+if not SECRET_KEY:
+    # In dev only (DJANGO_DEBUG=True), generate an in-memory throwaway so `manage.py check`
+    # works on a fresh clone. NEVER reachable in production — production settings load
+    # this module first and would have died on the env() lookup above if DJANGO_SECRET_KEY
+    # wasn't set (we removed the default).
+    if env.bool("DJANGO_DEBUG", default=False):
+        import secrets as _secrets
+
+        SECRET_KEY = _secrets.token_urlsafe(50)
+    else:
+        from django.core.exceptions import ImproperlyConfigured
+
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY must be set in production (no fallback). "
+            "See .env.example for the expected variable name."
+        )
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "0.0.0.0", "127.0.0.1"])
 
@@ -237,14 +253,18 @@ STORAGES = {
 }
 
 # ---------------------------------------------------------------------------
-# Security (OWASP A02 / A05 / ASVS L2 defaults — see production.py for HSTS + cookies)
+# Security (OWASP A02 / A05 / ASVS L2 defaults — see production.py for HSTS,
+# secure-cookie flags, and SECURE_PROXY_SSL_HEADER which is set ONLY when behind
+# a trusted proxy)
 # ---------------------------------------------------------------------------
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
 SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = True
+# CSRF_COOKIE_HTTPONLY is intentionally NOT set to True here. Same-Site=Lax
+# already mitigates CSRF for top-level navigations. Django's CsrfViewMiddleware
+# requires JavaScript to read csrftoken and set the X-CSRFToken header on
+# fetch/XHR requests — setting HttpOnly here breaks every SPA flow.
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 

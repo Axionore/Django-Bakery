@@ -334,6 +334,138 @@ fn drf_user_viewset_is_admin_only() {
 }
 
 #[test]
+fn env_example_uses_placeholders_not_real_secrets() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let body = read(&root, ".env.example");
+    // Every secret field must be a placeholder, not a CSPRNG value.
+    for line_prefix in ["DJANGO_SECRET_KEY=", "POSTGRES_PASSWORD=", "REDIS_PASSWORD="] {
+        let line = body
+            .lines()
+            .find(|l| l.starts_with(line_prefix))
+            .unwrap_or_else(|| panic!("missing {line_prefix} in .env.example"));
+        let value = line.trim_start_matches(line_prefix);
+        assert!(
+            value.starts_with("<GENERATE"),
+            "{line_prefix}: secret slot must be a placeholder; got {value:?}"
+        );
+    }
+    // Flower creds must be required (no default).
+    assert!(body.contains("CELERY_FLOWER_USER=<GENERATE"));
+    assert!(body.contains("CELERY_FLOWER_PASSWORD=<GENERATE"));
+}
+
+#[test]
+fn production_compose_uses_env_redis_password() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let body = read(&root, "compose.production.yml");
+    assert!(
+        body.contains("$${REDIS_PASSWORD}"),
+        "redis must read its password from the env, not have it baked in"
+    );
+    // Belt-and-braces: confirm we don't accidentally bake the literal value.
+    assert!(
+        !body.contains("--requirepass {{"),
+        "Jinja shouldn't leak — should have rendered already"
+    );
+}
+
+#[test]
+fn base_settings_secret_key_no_insecure_default() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let base = read(&root, "config/settings/base.py");
+    // The old "insecure-fallback-only-for-checks" string must not be present anymore.
+    assert!(
+        !base.contains("insecure-fallback-only-for-checks"),
+        "base.py must NOT carry the old hardcoded fallback secret key"
+    );
+    assert!(
+        base.contains("ImproperlyConfigured")
+            && base.contains("DJANGO_SECRET_KEY must be set in production"),
+        "base.py must hard-fail in production when DJANGO_SECRET_KEY is unset"
+    );
+}
+
+#[test]
+fn secure_proxy_ssl_header_only_in_production_settings() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let base = read(&root, "config/settings/base.py");
+    let prod = read(&root, "config/settings/production.py");
+    assert!(
+        !base.contains("SECURE_PROXY_SSL_HEADER = "),
+        "SECURE_PROXY_SSL_HEADER must NOT be ASSIGNED in base.py (spoofable in dev). \
+         A comment explaining the move is fine."
+    );
+    assert!(
+        prod.contains("SECURE_PROXY_SSL_HEADER = "),
+        "production.py must set SECURE_PROXY_SSL_HEADER (deployment is behind a proxy)"
+    );
+}
+
+#[test]
+fn csrf_cookie_httponly_not_set_to_true() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let base = read(&root, "config/settings/base.py");
+    assert!(
+        !base.contains("CSRF_COOKIE_HTTPONLY = True"),
+        "CSRF_COOKIE_HTTPONLY=True breaks every SPA flow — must be removed"
+    );
+}
+
+#[test]
+fn flower_local_start_has_no_default_credentials() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let body = read(&root, "compose/local/django/celery/flower/start");
+    assert!(
+        !body.contains(":-admin") && !body.contains(":-flower"),
+        "Flower start script must not have hardcoded credential fallbacks"
+    );
+    assert!(
+        body.contains("CELERY_FLOWER_USER must be set")
+            && body.contains("CELERY_FLOWER_PASSWORD must be set"),
+        "Flower start script must fail-fast when credentials are missing"
+    );
+}
+
+#[test]
+fn auth_signals_wired_for_audit_logging() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    assert_present(&root, "apps/users/signals.py");
+    let signals = read(&root, "apps/users/signals.py");
+    assert!(signals.contains("user_login_failed"));
+    assert!(signals.contains("user_logged_in"));
+    assert!(signals.contains("user_signed_up"));
+    let apps_cfg = read(&root, "apps/users/apps.py");
+    assert!(
+        apps_cfg.contains("from apps.users import signals"),
+        "signals must be imported in UsersConfig.ready() to register receivers"
+    );
+}
+
+#[test]
+fn readyz_does_not_leak_exception_detail() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let body = read(&root, "apps/core/views.py");
+    // Old form leaked: `"detail": str(exc)` — the fixed version must use `logger.exception`
+    // and return a generic 503 body.
+    assert!(
+        !body.contains("\"detail\": str(exc)"),
+        "readyz must not echo the exception detail in the HTTP body"
+    );
+    assert!(
+        body.contains("logger.exception"),
+        "readyz must log the exception server-side"
+    );
+}
+
+#[test]
 fn mfa_middleware_wired_in_settings() {
     let recipe = Recipe::defaults();
     let (_tmp, root) = render_recipe(&recipe);

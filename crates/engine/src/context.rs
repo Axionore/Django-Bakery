@@ -295,13 +295,29 @@ mod tests {
     }
 
     #[test]
-    fn secret_key_alphabet_is_well_formed() {
-        let key = secret_key(64);
-        assert_eq!(key.len(), 64);
-        assert!(
-            key.chars().all(|c| c.is_ascii_graphic()),
-            "secret_key must use only printable ASCII; got {key:?}"
-        );
+    fn secret_key_alphabet_is_url_safe() {
+        // URL-safe alphabet only — no shell-special chars that would corrupt .env parsing
+        // or shell interpolation. Audit fix for the secret-key alphabet finding.
+        let key = secret_key(128);
+        assert_eq!(key.len(), 128);
+        for c in key.chars() {
+            assert!(
+                c.is_ascii_alphanumeric() || c == '-' || c == '_',
+                "secret_key contains unsafe character {c:?} in {key:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn secret_key_has_no_shell_special_chars() {
+        // Belt and braces: this set must NEVER appear regardless of length.
+        let key = secret_key(256);
+        for forbidden in ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '"', '\'', '`', '\\'] {
+            assert!(
+                !key.contains(forbidden),
+                "secret_key {key:?} contains forbidden char {forbidden:?}"
+            );
+        }
     }
 }
 
@@ -311,8 +327,12 @@ mod tests {
 /// `SECRET_KEY`, `POSTGRES_PASSWORD`, etc. — never logged, only written to `.env*` files
 /// inside the generated project (which is `.gitignore`'d by default).
 pub fn secret_key(len: usize) -> String {
+    // URL-safe alphabet only (64 chars). At 50 chars that's ~300 bits of entropy — well
+    // above Django's 128-bit minimum and the OWASP ASVS L2 threshold. Critically, no
+    // characters with special meaning in shells or `.env` files (`$`, `!`, `(`, `*`, `&`,
+    // `#`, quotes) — secrets written into env files must round-trip through any parser.
     const ALPHABET: &[u8] =
-        b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_!@#$%^&*()";
+        b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
     let mut rng = rand_chacha::ChaCha20Rng::from_os_rng();
     let mut out = String::with_capacity(len);
     for _ in 0..len {
