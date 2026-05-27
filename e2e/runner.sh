@@ -41,11 +41,14 @@ if [[ "${1:-}" == "--stop" ]]; then
             kill "$pid" 2>/dev/null || true
         done < "$pidfile"
         rm -f "$pidfile"
-        # Drop any ephemeral Postgres container provisioned for this scenario.
+        # Drop any ephemeral containers provisioned for this scenario
+        # (Postgres / MySQL / MariaDB / Redis — all recorded in the same
+        # `.pg-container` sentinel, one container name per line).
         pg_container_file="$(dirname "$pidfile")/.pg-container"
         if [[ -f "$pg_container_file" ]]; then
-            container=$(cat "$pg_container_file")
-            docker rm -f "$container" >/dev/null 2>&1 || true
+            while read -r container; do
+                [[ -n "$container" ]] && docker rm -f "$container" >/dev/null 2>&1 || true
+            done < "$pg_container_file"
             rm -f "$pg_container_file"
         fi
     done
@@ -163,12 +166,41 @@ elif grep -q '"pymysql\|"mysqlclient' "$PROJ_DIR/pyproject.toml" 2>/dev/null; th
     DB_URL="mysql://root:$MY_PASSWORD@127.0.0.1:$MY_PORT/$MY_DB"
 fi
 
+# --- 2c) redis (when celery is wired) ----------------------------------------
+# Celery init validates the broker URL at Django import time — so the dev
+# server can't boot without a reachable Redis. Spin up a per-scenario Redis 8
+# container if the rendered project depends on celery.
+CELERY_BROKER_URL=""
+if grep -q '"celery\b' "$PROJ_DIR/pyproject.toml" 2>/dev/null; then
+    R_CONTAINER="bakery-e2e-redis-${SCENARIO//[^a-z0-9]/_}"
+    echo "↻  starting Redis 8 in container $R_CONTAINER (ephemeral host port)…"
+    docker rm -f "$R_CONTAINER" >/dev/null 2>&1 || true
+    docker run --rm -d --name "$R_CONTAINER" \
+        -p '127.0.0.1::6379' \
+        redis:8-alpine >/dev/null
+    # Reuse the .pg-container sentinel for teardown (one cleanup hook covers
+    # all e2e-spawned containers).
+    echo "$R_CONTAINER" >> "$SCRATCH/.pg-container"
+    R_PORT=$(docker port "$R_CONTAINER" 6379/tcp | head -1 | sed 's/.*://')
+    [[ -n "$R_PORT" ]] || { echo "✘  failed to read assigned Redis port" >&2; exit 1; }
+    echo "    → host port :$R_PORT"
+    for _ in $(seq 1 20); do
+        if docker exec "$R_CONTAINER" redis-cli ping 2>/dev/null | grep -q PONG; then
+            echo "    ✓ Redis ready"
+            break
+        fi
+        sleep 1
+    done
+    CELERY_BROKER_URL="redis://127.0.0.1:$R_PORT/0"
+fi
+
 cat > "$PROJ_DIR/.env" <<EOF
 DJANGO_SETTINGS_MODULE=config.settings.local
 DJANGO_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(48))")
 DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
 DATABASE_URL=$DB_URL
+${CELERY_BROKER_URL:+CELERY_BROKER_URL=$CELERY_BROKER_URL}
 USE_DEBUG_TOOLBAR=False
 STAFF_MFA_REQUIRED=False
 PWNED_PASSWORDS_ENABLED=False
