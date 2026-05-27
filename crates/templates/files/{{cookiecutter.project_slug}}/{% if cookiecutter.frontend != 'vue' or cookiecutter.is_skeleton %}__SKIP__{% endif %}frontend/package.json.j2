@@ -5,13 +5,6 @@
   "type": "module",
   "packageManager": "pnpm@10.0.0",
   "engines": { "node": ">=24", "pnpm": ">=10" },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@parcel/watcher",
-      "esbuild",
-      "unrs-resolver"
-    ]
-  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vue-tsc --build && vite build",

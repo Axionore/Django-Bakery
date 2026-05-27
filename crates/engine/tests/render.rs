@@ -1236,15 +1236,31 @@ fn frontend_dotfile_shadow_extends_to_subtree() {
 }
 
 #[test]
-fn pnpm_workspace_yaml_only_for_spa_recipes() {
+fn pnpm_workspace_yaml_present_when_pnpm_needed() {
+    // SPA recipes: workspace.yaml declares `frontend/` as a package + carries
+    // the project-wide pnpm 11 settings (onlyBuiltDependencies, etc.).
     let (_tmp1, r1) = render_recipe(&react_recipe());
     let body = read(&r1, "pnpm-workspace.yaml");
-    assert!(body.contains("frontend"), "pnpm-workspace.yaml must reference frontend");
+    assert!(body.contains("packages:"), "SPA pnpm-workspace.yaml must declare a package");
+    assert!(body.contains("frontend"), "SPA pnpm-workspace.yaml must list frontend");
+    assert!(body.contains("onlyBuiltDependencies"), "must carry build-script allowlist");
 
+    // HTMX + Tailwind (the default) ships a root package.json for the Tailwind
+    // CLI build — so it also needs the workspace.yaml to carry pnpm settings,
+    // but with no `packages:` since the root IS the package.
     let mut htmx = Recipe::defaults();
     htmx.project_slug = "htmx_app".into();
     let (_tmp2, r2) = render_recipe(&htmx);
-    assert_absent(&r2, "pnpm-workspace.yaml");
+    let body = read(&r2, "pnpm-workspace.yaml");
+    assert!(!body.contains("packages:"), "htmx-only workspace.yaml has no nested packages");
+    assert!(body.contains("onlyBuiltDependencies"), "must still carry build-script allowlist");
+
+    // HTMX without Tailwind: no Node at all, so no workspace.yaml.
+    let mut htmx_no_css = Recipe::defaults();
+    htmx_no_css.project_slug = "htmx_bare".into();
+    htmx_no_css.css_framework = django_bakery_engine::CssFramework::None;
+    let (_tmp3, r3) = render_recipe(&htmx_no_css);
+    assert_absent(&r3, "pnpm-workspace.yaml");
 }
 
 #[test]

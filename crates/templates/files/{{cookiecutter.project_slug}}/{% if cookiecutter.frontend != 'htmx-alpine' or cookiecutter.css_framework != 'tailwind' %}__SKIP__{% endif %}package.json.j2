@@ -5,9 +5,6 @@
   "description": "Tailwind v4 build for the server-rendered Django + HTMX project. The only Node touchpoint — at runtime the site is HTML+CSS+HTMX, no bundle.",
   "packageManager": "pnpm@10.0.0",
   "engines": { "node": ">=24", "pnpm": ">=10" },
-  "pnpm": {
-    "onlyBuiltDependencies": ["@parcel/watcher"]
-  },
   "scripts": {
     "css:build": "tailwindcss -i ./static/css/app.css -o ./static/css/app.compiled.css --minify",
     "css:watch": "tailwindcss -i ./static/css/app.css -o ./static/css/app.compiled.css --watch"
