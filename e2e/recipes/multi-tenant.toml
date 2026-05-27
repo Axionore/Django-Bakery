@@ -1,0 +1,41 @@
+# Multi-tenant (django-tenants, PG-schema-per-tenant). Exercises the
+# multi_tenant=true template branches: SHARED_APPS / TENANT_APPS split,
+# TenantMainMiddleware ordering, the renamed `start.j2`'s migrate_schemas
+# + bootstrap_public_tenant branch, and the django-tenants pyproject pin.
+project_name = "Tenant Demo"
+project_slug = "tenant_demo"
+description = "Multi-tenant smoke test"
+author_name = "e2e"
+author_email = "e2e@example.com"
+domain_name = "localhost"
+license = "mit"
+open_source = true
+
+python_version = "3.14"
+django_version = "6.0"
+mode = "development"
+relational_db = "postgres"
+graph_db = "none"
+api_layer = "ninja"
+frontend = "htmx-alpine"
+frontend_variant = "full"
+js_language = "typescript"
+js_testing = false
+css_framework = "tailwind"
+
+use_celery = false
+celery_broker = "redis"
+use_mailpit = false
+prod_email = "console"
+storage = "whitenoise"
+use_sentry = false
+use_observability = false
+use_feature_flags = false
+type_checker = "none"
+use_pre_commit = false
+ci = "none"
+container_setup = "compose-only"
+version_control = "none"
+timezone = "UTC"
+
+multi_tenant = true

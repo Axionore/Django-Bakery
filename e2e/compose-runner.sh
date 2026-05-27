@@ -140,7 +140,7 @@ echo "    Django assigned host port: $DJANGO_PORT"
 # --- 4) wait for django service ---------------------------------------------
 echo -n "↻  waiting for django on host :$DJANGO_PORT"
 for _ in $(seq 1 90); do
-    if curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:$DJANGO_PORT/healthz/" 2>/dev/null | grep -q 200; then
+    if curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "http://127.0.0.1:$DJANGO_PORT/healthz/" 2>/dev/null | grep -q 200; then
         echo " ✓"
         break
     fi
@@ -149,8 +149,12 @@ for _ in $(seq 1 90); do
 done
 
 # --- 5) verify endpoints  ---------------------------------------------------
-healthz_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$DJANGO_PORT/healthz/" 2>/dev/null || echo "000")
-home_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:$DJANGO_PORT/" 2>/dev/null || echo "000")
+# Use `Host: localhost` because multi-tenant recipes route requests by the
+# Host header (TenantMainMiddleware → Domain lookup). For non-multi-tenant
+# recipes Django happily accepts any Host in ALLOWED_HOSTS, so this is a
+# no-op there but the right hostname for tenant routing.
+healthz_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H "Host: localhost" "http://127.0.0.1:$DJANGO_PORT/healthz/" 2>/dev/null || echo "000")
+home_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H "Host: localhost" "http://127.0.0.1:$DJANGO_PORT/" 2>/dev/null || echo "000")
 
 # --- 6) capture compose ps for the log
 (cd "$PROJ_DIR" && docker compose -f compose.local.yml ps) > "$LOGS/compose-ps.log" 2>&1 || true
