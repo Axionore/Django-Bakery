@@ -31,9 +31,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 }));
 
-/** Convenience hook for components that only need `user` + `status`. */
+/** Convenience hook for components that only need `user` + `status`.
+ *
+ * Selectors are split per-field so each `useAuthStore` call returns a stable
+ * primitive/reference. Returning a fresh object literal from a single selector
+ * trips React 19's useSyncExternalStore snapshot check, producing
+ * "getSnapshot should be cached" warnings and an infinite re-render loop.
+ */
 export function useAuth(): { user: AuthenticatedUser | null; status: SessionStatus } {
-  return useAuthStore((s) => ({ user: s.user, status: s.status }));
+  const user = useAuthStore((s) => s.user);
+  const status = useAuthStore((s) => s.status);
+  return { user, status };
 }
 
 /** Logout action — clears server session, then local store. */

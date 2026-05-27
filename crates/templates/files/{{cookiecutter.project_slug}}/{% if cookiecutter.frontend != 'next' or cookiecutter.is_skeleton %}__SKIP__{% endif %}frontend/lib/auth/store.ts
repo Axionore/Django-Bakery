@@ -47,7 +47,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 }));
 
 export function useAuth(): { user: AuthenticatedUser | null; status: Status } {
-  return useAuthStore((s) => ({ user: s.user, status: s.status }));
+  const user = useAuthStore((s) => s.user);
+  const status = useAuthStore((s) => s.status);
+  return { user, status };
 }
 
 export function useLogout(): () => Promise<void> {
