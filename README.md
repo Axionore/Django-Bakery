@@ -88,7 +88,7 @@ django-bakery new --strict-compat      # fail on any compat warning
 cargo install django-bakery
 
 # Homebrew
-brew install charlesasobel/tap/django-bakery
+brew install axionore/tap/django-bakery
 
 # Pre-built binary (Linux / macOS / Windows)
 curl -fsSL https://raw.githubusercontent.com/Axionore/Django-Barkery/main/installer/install.sh | sh

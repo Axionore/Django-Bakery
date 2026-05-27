@@ -2,13 +2,13 @@
 # Coolify-style installer for django-bakery.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/charlesasobel/django-bakery/main/installer/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/Axionore/Django-Barkery/main/installer/install.sh | sh
 #   curl -fsSL ... | sh -s -- --version v0.1.0
 #   curl -fsSL ... | sh -s -- --prefix ~/.local/bin
 
 set -eu
 
-REPO="charlesasobel/django-bakery"
+REPO="Axionore/Django-Barkery"
 VERSION="latest"
 PREFIX="${INSTALL_PREFIX:-/usr/local/bin}"
 
