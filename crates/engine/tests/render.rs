@@ -1381,6 +1381,85 @@ fn multi_tenant_rejects_non_postgres() {
 }
 
 #[test]
+fn multi_tenant_installed_apps_preserves_django_tenants_first() {
+    // django-tenants requires `django_tenants` to be the FIRST entry in
+    // INSTALLED_APPS so its post_migrate signal beats Django's stock signals.
+    // A set-based dedup (`list({*SHARED_APPS, *TENANT_APPS})`) silently loses
+    // this ordering because Python set iteration is hash-based. Use an
+    // order-preserving comprehension instead.
+    let mut r = Recipe::defaults();
+    r.project_slug = "mt_order".into();
+    r.multi_tenant = true;
+    let (_tmp, root) = render_recipe(&r);
+    let settings = read(&root, "config/settings/base.py");
+    assert!(
+        !settings.contains("list({*SHARED_APPS"),
+        "INSTALLED_APPS must not flatten through a set (destroys ordering); \
+         use `SHARED_APPS + [a for a in TENANT_APPS if a not in SHARED_APPS]`"
+    );
+    assert!(
+        settings.contains("[app for app in TENANT_APPS if app not in SHARED_APPS]")
+            || settings.contains("[a for a in TENANT_APPS if a not in SHARED_APPS]"),
+        "INSTALLED_APPS must use an order-preserving comprehension"
+    );
+}
+
+#[test]
+fn multi_tenant_start_script_uses_migrate_schemas() {
+    // django-tenants disables the bare `manage.py migrate` command — running
+    // it errors out. The shared start script must branch to
+    // `migrate_schemas --shared` (then `bootstrap_public_tenant`) when
+    // multi_tenant=true, otherwise the dev container exits on first boot.
+    let mut r = Recipe::defaults();
+    r.project_slug = "mt_start".into();
+    r.multi_tenant = true;
+    let (_tmp, root) = render_recipe(&r);
+    let start = read(&root, "compose/local/django/start");
+    assert!(
+        start.contains("migrate_schemas --shared"),
+        "multi-tenant start script must run `migrate_schemas --shared` (not bare `migrate`)"
+    );
+    assert!(
+        start.contains("bootstrap_public_tenant"),
+        "multi-tenant start script must bootstrap the public Tenant + Domain rows"
+    );
+
+    // And the single-tenant default still uses plain `migrate`.
+    let (_tmp, root) = render_recipe(&Recipe::defaults());
+    let start = read(&root, "compose/local/django/start");
+    assert!(
+        start.contains("manage.py migrate --noinput"),
+        "non-multi-tenant start script must use plain `migrate` (no schema split)"
+    );
+    assert!(
+        !start.contains("migrate_schemas"),
+        "non-multi-tenant start script must NOT include migrate_schemas"
+    );
+}
+
+#[test]
+fn postgres_healthcheck_honors_env_overrides() {
+    // The compose Postgres service reads POSTGRES_USER / POSTGRES_DB from
+    // `.env` via env_file. The healthcheck must use the same env vars (with
+    // defaults) — hardcoding `-U postgres -d <slug>` silently breaks the
+    // stack whenever the user overrides either value in `.env`.
+    let mut r = Recipe::defaults();
+    r.project_slug = "pg_health".into();
+    r.relational_db = django_bakery_engine::RelationalDb::Postgres;
+    r.container_setup = django_bakery_engine::ContainerSetup::ComposeTraefik;
+    let (_tmp, root) = render_recipe(&r);
+    let compose = read(&root, "compose.local.yml");
+    assert!(
+        compose.contains("${POSTGRES_USER:-postgres}"),
+        "pg_isready must read POSTGRES_USER from env (with default), not hardcode `postgres`"
+    );
+    assert!(
+        compose.contains("${POSTGRES_DB:-pg_health}"),
+        "pg_isready must read POSTGRES_DB from env (with default = project_slug)"
+    );
+}
+
+#[test]
 fn production_dockerfile_meets_security_baseline() {
     let mut r = Recipe::defaults();
     r.project_slug = "docker_test".into();
@@ -1491,6 +1570,18 @@ fn frontend_package_json_versions_come_from_resolver_not_literals() {
         "next", "react", "react-dom", "@radix-ui/themes",
         "@tanstack/react-query", "zod",
         "vitest", "@vitest/coverage-v8", "eslint-config-next",
+    ]);
+
+    // HTMX + Tailwind root package.json (no `frontend/` dir — Tailwind CLI
+    // builds static/css/app.compiled.css). This template was missed by the
+    // initial bakery.versions wiring refactor; the resolver wiring is now
+    // pinned here so it can't regress.
+    let mut htmx = Recipe::defaults();
+    htmx.frontend = django_bakery_engine::Frontend::HtmxAlpine;
+    htmx.css_framework = django_bakery_engine::CssFramework::Tailwind;
+    let (_tmp, r) = render_recipe(&htmx);
+    assert_versions_match_resolver(&r, "package.json", &[
+        "tailwindcss", "@tailwindcss/cli",
     ]);
 }
 
