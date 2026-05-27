@@ -1,0 +1,31 @@
+node_modules/
+dist/
+build/
+.pnpm-store/
+.vite/
+.turbo/
+
+# Tests / coverage
+coverage/
+playwright-report/
+test-results/
+.nyc_output/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated
+*.tsbuildinfo

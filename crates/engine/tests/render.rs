@@ -589,6 +589,155 @@ fn malicious_recipe_slug_with_traversal_is_rejected_by_validator() {
     assert!(r.validate().is_err(), "validator must reject path-traversal in slug");
 }
 
+fn react_recipe() -> Recipe {
+    let mut r = Recipe::defaults();
+    r.project_slug = "react_app".into();
+    r.frontend = Frontend::React;
+    r.radix_flavor = Some(django_bakery_engine::RadixFlavor::Themes);
+    r.js_language = django_bakery_engine::JsLanguage::Typescript;
+    r.js_testing = true;
+    r
+}
+
+#[test]
+fn frontend_react_recipe_emits_full_tree() {
+    let recipe = react_recipe();
+    let (_tmp, root) = render_recipe(&recipe);
+    assert_present(&root, "pnpm-workspace.yaml");
+    for f in [
+        "frontend/package.json",
+        "frontend/tsconfig.json",
+        "frontend/vite.config.ts",
+        "frontend/vitest.config.ts",
+        "frontend/playwright.config.ts",
+        "frontend/eslint.config.js",
+        "frontend/.prettierrc",
+        "frontend/.gitignore",
+        "frontend/.env.example",
+        "frontend/index.html",
+        "frontend/README.md",
+        "frontend/src/main.tsx",
+        "frontend/src/router.tsx",
+        "frontend/src/env.ts",
+        "frontend/src/routes/_layout.tsx",
+        "frontend/src/routes/index.tsx",
+        "frontend/src/routes/about.tsx",
+        "frontend/src/routes/_not-found.tsx",
+        "frontend/src/routes/account/login.tsx",
+        "frontend/src/routes/account/signup.tsx",
+        "frontend/src/routes/account/profile.tsx",
+        "frontend/src/routes/account/mfa-challenge.tsx",
+        "frontend/src/routes/account/mfa-activate.tsx",
+        "frontend/src/routes/account/verify-email.tsx",
+        "frontend/src/routes/account/recovery-codes.tsx",
+        "frontend/src/auth/client.ts",
+        "frontend/src/auth/csrf.ts",
+        "frontend/src/auth/store.ts",
+        "frontend/src/auth/guards.tsx",
+        "frontend/src/auth/types.ts",
+        "frontend/src/auth/tests/client.test.ts",
+        "frontend/src/api/client.ts",
+        "frontend/src/ui/nav.tsx",
+        "frontend/src/ui/theme.tsx",
+        "frontend/tests/e2e/login.spec.ts",
+    ] {
+        assert_present(&root, f);
+    }
+}
+
+#[test]
+fn frontend_recipe_carries_no_skip_markers() {
+    let (_tmp, root) = render_recipe(&react_recipe());
+    let mut offenders = Vec::new();
+    for entry in walkdir::WalkDir::new(root.join("frontend")) {
+        let entry = entry.expect("walk");
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let body = std::fs::read_to_string(entry.path()).unwrap_or_default();
+        if body.contains("__SKIP__") {
+            offenders.push(entry.path().display().to_string());
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "frontend files contain __SKIP__ markers:\n  - {}",
+        offenders.join("\n  - ")
+    );
+}
+
+#[test]
+fn frontend_dotfile_shadow_extends_to_subtree() {
+    let (_tmp, root) = render_recipe(&react_recipe());
+    for d in ["frontend/.gitignore", "frontend/.env.example", "frontend/.prettierrc"] {
+        assert_present(&root, d);
+    }
+    for raw in ["frontend/_dot_gitignore", "frontend/_dot_env.example", "frontend/_dot_prettierrc"] {
+        assert_absent(&root, raw);
+    }
+}
+
+#[test]
+fn pnpm_workspace_yaml_only_for_spa_recipes() {
+    let (_tmp1, r1) = render_recipe(&react_recipe());
+    let body = read(&r1, "pnpm-workspace.yaml");
+    assert!(body.contains("frontend"), "pnpm-workspace.yaml must reference frontend");
+
+    let mut htmx = Recipe::defaults();
+    htmx.project_slug = "htmx_app".into();
+    let (_tmp2, r2) = render_recipe(&htmx);
+    assert_absent(&r2, "pnpm-workspace.yaml");
+}
+
+#[test]
+fn csp_connect_src_extended_for_spa_origins() {
+    let (_tmp, root) = render_recipe(&react_recipe());
+    let body = read(&root, "config/settings/base.py");
+    assert!(body.contains("http://localhost:5173"), "CSP/CORS must include the SPA dev origin");
+    assert!(
+        body.contains("CSP_CONNECT_SRC = (\"'self'\", \"http://localhost:5173\")"),
+        "CSP_CONNECT_SRC must include the SPA origin"
+    );
+    assert!(
+        body.contains("CSRF_TRUSTED_ORIGINS"),
+        "CSRF_TRUSTED_ORIGINS must be set when SPA frontend is selected"
+    );
+}
+
+#[test]
+fn frontend_compose_service_added_for_spa() {
+    let (_tmp, root) = render_recipe(&react_recipe());
+    let body = read(&root, "compose.local.yml");
+    assert!(body.contains("frontend:"), "frontend service must be in compose.local.yml");
+    assert!(body.contains("node:24-alpine"), "Node 24+ alpine image expected");
+    assert!(body.contains("\"5173:5173\""), "Vite dev port 5173 must be exposed");
+}
+
+#[test]
+fn react_auth_client_carries_security_invariants() {
+    let (_tmp, root) = render_recipe(&react_recipe());
+    let body = read(&root, "frontend/src/auth/client.ts");
+    assert!(body.contains("credentials: \"include\""), "every fetch must send credentials");
+    assert!(body.contains("X-CSRFToken"), "auth client must forward CSRF header");
+    assert!(body.contains("mfa_required"), "MFA branch must be wired");
+    assert!(body.contains("email_verification_required"), "verify-email branch must be wired");
+    // Reject any actual localStorage / sessionStorage CALL — a comment mentioning the
+    // anti-pattern is fine (and present, deliberately).
+    for forbidden in [
+        "localStorage.setItem",
+        "localStorage.getItem",
+        "sessionStorage.setItem",
+        "sessionStorage.getItem",
+        "window.localStorage",
+        "window.sessionStorage",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "auth client must NOT call {forbidden} (session cookies only)"
+        );
+    }
+}
+
 #[test]
 fn force_overwrites_existing_directory() {
     let tmp = TempDir::new().unwrap();

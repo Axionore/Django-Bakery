@@ -1,0 +1,53 @@
+import { Box, Flex, Heading, Table, Text } from "@radix-ui/themes";
+
+const DESCRIPTION = "{{ cookiecutter.description }}";
+const BACKEND_STACK = "Django {{ cookiecutter.django_version }} · Python {{ cookiecutter.python_version }}";
+const FRONTEND_STACK = "React 19 · Vite 7 · TypeScript 6 · Radix Themes";
+{%- if cookiecutter.api_layer != 'none' %}
+const API_LAYER = "{{ cookiecutter.api_layer }}";
+{%- endif %}
+const AUTH_STACK = "django-allauth headless · MFA TOTP · Argon2id · session cookies";
+
+{% raw %}
+export function AboutPage() {
+  return (
+    <Flex direction="column" gap="5" py="6" style={{ maxWidth: 720 }}>
+      <Heading size="8">About</Heading>
+      <Text as="p" size="3" color="gray">
+        {DESCRIPTION}
+      </Text>
+      <Box>
+        <Heading size="5" mb="3">
+          Stack
+        </Heading>
+        <Table.Root variant="surface">
+          <Table.Body>
+            <Table.Row>
+              <Table.RowHeaderCell>Backend</Table.RowHeaderCell>
+              <Table.Cell>{BACKEND_STACK}</Table.Cell>
+            </Table.Row>
+            <Table.Row>
+              <Table.RowHeaderCell>Frontend</Table.RowHeaderCell>
+              <Table.Cell>{FRONTEND_STACK}</Table.Cell>
+            </Table.Row>
+{% endraw %}
+{%- if cookiecutter.api_layer != 'none' %}
+{% raw %}
+            <Table.Row>
+              <Table.RowHeaderCell>API</Table.RowHeaderCell>
+              <Table.Cell>{API_LAYER}</Table.Cell>
+            </Table.Row>
+{% endraw %}
+{%- endif %}
+{% raw %}
+            <Table.Row>
+              <Table.RowHeaderCell>Auth</Table.RowHeaderCell>
+              <Table.Cell>{AUTH_STACK}</Table.Cell>
+            </Table.Row>
+          </Table.Body>
+        </Table.Root>
+      </Box>
+    </Flex>
+  );
+}
+{% endraw %}

@@ -155,6 +155,24 @@ impl Context {
                 crate::recipe::ContainerSetup::ComposeTraefik
             )),
         );
+        // Frontend-context booleans + dev port.
+        let dev_port: u16 = match r.frontend {
+            crate::recipe::Frontend::React => 5173,
+            crate::recipe::Frontend::Nuxt => 3000,
+            _ => 0,
+        };
+        m.insert("frontend_dev_port".into(), json!(dev_port));
+        m.insert(
+            "frontend_origin".into(),
+            json!(format!("http://localhost:{}", dev_port)),
+        );
+        m.insert(
+            "has_typed_api".into(),
+            json!(matches!(
+                r.api_layer,
+                crate::recipe::ApiLayer::Ninja | crate::recipe::ApiLayer::Drf
+            )),
+        );
         m
     }
 
@@ -169,6 +187,9 @@ impl Context {
         // Non-secret but unguessable: admin URL suffix. Defends against `/admin/` scanners
         // and reduces the noise of automated brute-force on the auth endpoint.
         m.insert("admin_url_suffix".into(), json!(secret_key(16).to_lowercase()));
+        // Frontend dev-server config is exposed under `cookiecutter.*` for template
+        // ergonomics (see cookiecutter_block). The duplicate definition here keeps the
+        // `bakery.*` namespace consistent for callers that prefer it.
         m.insert(
             "bakery_version".into(),
             json!(env!("CARGO_PKG_VERSION")),

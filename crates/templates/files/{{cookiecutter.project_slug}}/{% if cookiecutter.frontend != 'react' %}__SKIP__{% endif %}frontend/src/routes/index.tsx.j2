@@ -1,0 +1,55 @@
+import { Link } from "react-router";
+import { Box, Button, Flex, Heading, Text } from "@radix-ui/themes";
+import { ArrowRightIcon{% if cookiecutter.api_layer != 'none' %}, RocketIcon{% endif %} } from "@radix-ui/react-icons";
+
+import { useAuth } from "~/auth/store";
+import { env } from "~/env";
+
+const DESCRIPTION = "{{ cookiecutter.description }}";
+
+{% raw %}
+export function HomePage() {
+  const { user } = useAuth();
+  return (
+    <Flex direction="column" gap="6" py="6">
+      <Box>
+        <Heading size="9" mb="3">
+          {env().VITE_APP_NAME}
+        </Heading>
+        <Text as="p" size="4" color="gray" style={{ maxWidth: 640 }}>
+          {DESCRIPTION}
+        </Text>
+      </Box>
+      <Flex gap="3" wrap="wrap">
+        {user ? (
+          <Button asChild size="3">
+            <Link to="/account/profile">
+              Your profile <ArrowRightIcon />
+            </Link>
+          </Button>
+        ) : (
+          <Button asChild size="3">
+            <Link to="/account/login">
+              Sign in <ArrowRightIcon />
+            </Link>
+          </Button>
+        )}
+{% endraw %}
+{%- if cookiecutter.api_layer != 'none' %}
+{% raw %}
+        <Button asChild variant="soft" size="3">
+          <a href="/api/docs" target="_blank" rel="noreferrer">
+            <RocketIcon /> API docs
+          </a>
+        </Button>
+{% endraw %}
+{%- endif %}
+{% raw %}
+        <Button asChild variant="ghost" size="3">
+          <Link to="/about">Learn more</Link>
+        </Button>
+      </Flex>
+    </Flex>
+  );
+}
+{% endraw %}

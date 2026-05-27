@@ -85,6 +85,32 @@ services:
       - "15672:15672"
 {%- endif %}
 
+{%- if cookiecutter.has_frontend_spa %}
+
+  frontend:
+    image: node:24-alpine
+    working_dir: /workspace/frontend
+    env_file:
+      - .env
+    environment:
+      VITE_BACKEND_URL: http://django:8000
+{%- if cookiecutter.frontend == 'nuxt' %}
+      NITRO_BACKEND_URL: http://django:8000
+{%- endif %}
+    volumes:
+      - .:/workspace
+      - frontend_node_modules:/workspace/frontend/node_modules
+    ports:
+      - "{{ cookiecutter.frontend_dev_port }}:{{ cookiecutter.frontend_dev_port }}"
+    command: >
+      sh -c "corepack enable pnpm &&
+             pnpm install --frozen-lockfile=false &&
+             pnpm dev"
+    depends_on:
+      django:
+        condition: service_started
+{%- endif %}
+
 {%- if cookiecutter.use_celery %}
 
   celery_worker:
@@ -134,4 +160,7 @@ volumes:
 {%- endif %}
 {%- if cookiecutter.use_celery and cookiecutter.celery_broker == 'redis' %}
   redis_data: {}
+{%- endif %}
+{%- if cookiecutter.has_frontend_spa %}
+  frontend_node_modules: {}
 {%- endif %}

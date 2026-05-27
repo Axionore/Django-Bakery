@@ -1,0 +1,16 @@
+# =============================================================================
+# {{ cookiecutter.project_name }} — frontend environment
+# Copy to `.env` (gitignored). NEVER commit the real `.env`.
+# =============================================================================
+
+# Backend the Vite dev proxy targets. In Docker Compose this is `http://django:8000`;
+# bare-metal dev it's `http://localhost:8000`.
+VITE_BACKEND_URL=http://localhost:8000
+
+# Public Sentry DSN — opt-in. Leave blank to disable client-side error reporting.
+{% if cookiecutter.use_sentry -%}
+VITE_SENTRY_DSN=
+{%- endif %}
+
+# Build-time toggles
+VITE_APP_NAME={{ cookiecutter.project_name }}

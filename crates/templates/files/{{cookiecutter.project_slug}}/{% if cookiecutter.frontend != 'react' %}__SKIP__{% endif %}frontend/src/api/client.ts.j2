@@ -1,0 +1,69 @@
+{%- if cookiecutter.has_typed_api %}
+/**
+ * Typed API client.
+ *
+ * Backend is {{ cookiecutter.api_layer }} — uses Django session authentication
+ * (see https://django-ninja.dev/guides/authentication/ for Ninja, or
+ * https://www.django-rest-framework.org/api-guide/authentication/ for DRF).
+ *
+ * The OpenAPI schema lives at `/api/openapi.json` (Ninja) or `/api/schema/`
+ * (DRF + drf-spectacular). Regenerate the types with:
+ *
+ *     pnpm openapi:gen
+ *
+ * which writes to `src/api/schema.d.ts`. The generated module exports `paths`,
+ * `components`, and `operations` — fetch wrappers can use those at the type
+ * level so requests + responses stay in lockstep with the backend.
+ *
+ * Auth model:
+ *   - Session cookie (`sessionid`) set by /_allauth/browser/v1/auth/login
+ *   - The cookie is HttpOnly — the SPA never reads it; the browser sends it
+ *   - X-CSRFToken header on every mutation (same pattern as auth/client.ts)
+ */
+
+import { csrfHeaders } from "~/auth/csrf";
+
+export class HttpError extends Error {
+  constructor(public status: number, public body: unknown) {
+    super(`HTTP ${status}`);
+    this.name = "HttpError";
+  }
+}
+
+const BASE = "/api";
+
+export async function apiGet<T>(path: string): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, {
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+  if (!r.ok) throw new HttpError(r.status, await r.json().catch(() => null));
+  return (await r.json()) as T;
+}
+
+export async function apiSend<T>(
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const r = await fetch(`${BASE}${path}`, {
+    method,
+    credentials: "include",
+    headers: csrfHeaders({ Accept: "application/json" }),
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!r.ok) throw new HttpError(r.status, await r.json().catch(() => null));
+  if (r.status === 204) return undefined as T;
+  return (await r.json()) as T;
+}
+
+/** Helper to extract the user record from `/api/me` (defined on both Ninja and DRF templates). */
+export async function fetchMe(): Promise<{ id: number; email: string; full_name: string; is_staff: boolean }> {
+  return apiGet("/me");
+}
+{% else %}
+// No API layer was selected for this project — this file is intentionally
+// minimal. If you add an HTTP API later, copy the typed-client pattern from
+// the django-bakery `frontend/src/api/client.ts.j2` template.
+export {};
+{% endif -%}
