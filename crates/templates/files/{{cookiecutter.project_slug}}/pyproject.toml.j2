@@ -94,8 +94,27 @@ dependencies = [
     "graphene-django>={{ bakery.versions['graphene-django'] }}",
 {%- endif %}
 {%- if cookiecutter.prod_email != 'console' and cookiecutter.prod_email != 'smtp' %}
-    # --- email ---
-    "django-anymail>={% if cookiecutter.prod_email == 'anymail-mailgun' %}11.1[mailgun]{% elif cookiecutter.prod_email == 'anymail-ses' %}11.1[amazon-ses]{% else %}11.1[sendgrid]{% endif %}",
+    # --- email (transactional ESP) ---
+    # django-anymail bundles every supported backend behind extras_require.
+    # The matching ANYMAIL settings block in `config/settings/production.py`
+    # tells Django which provider's API key/secret to read.
+{%- if cookiecutter.prod_email == 'anymail-mailgun' %}
+    "django-anymail[mailgun]>=11.1",
+{%- elif cookiecutter.prod_email == 'anymail-ses' %}
+    "django-anymail[amazon-ses]>=11.1",
+{%- elif cookiecutter.prod_email == 'anymail-sendgrid' %}
+    "django-anymail[sendgrid]>=11.1",
+{%- elif cookiecutter.prod_email == 'anymail-mailjet' %}
+    "django-anymail[mailjet]>=11.1",
+{%- elif cookiecutter.prod_email == 'anymail-mandrill' %}
+    "django-anymail[mandrill]>=11.1",
+{%- elif cookiecutter.prod_email == 'anymail-postmark' %}
+    "django-anymail[postmark]>=11.1",
+{%- elif cookiecutter.prod_email == 'anymail-brevo' %}
+    "django-anymail[brevo]>=11.1",
+{%- elif cookiecutter.prod_email == 'anymail-sparkpost' %}
+    "django-anymail[sparkpost]>=11.1",
+{%- endif %}
 {%- endif %}
 {%- if cookiecutter.storage == 'aws-s3' %}
     # --- storage: AWS S3 ---

@@ -16,10 +16,12 @@ use tracing_subscriber::EnvFilter;
     name = "django-bakery",
     version,
     about = "A fast, modern Django project generator written in Rust.",
-    long_about = "django-bakery generates production-grade Django 6 projects with Postgres, Docker, \
-                  Django Ninja or DRF, HTMX+Alpine+Tailwind v4 frontends, Celery, Sentry, structlog, \
-                  CI, and OWASP-aligned defaults baked in. Everything you'd expect from \
-                  cookiecutter-django — faster, in a single binary, with better defaults for 2026."
+    long_about = "django-bakery generates production-grade Django 6 projects in roughly 150 ms — \
+                  Postgres 18, Docker Compose + Traefik, Django Ninja / DRF / Strawberry / Graphene, \
+                  HTMX + Alpine or React + Vite + Radix Themes or Nuxt 4 or Vue 3 or Next.js 16, \
+                  Tailwind v4, allauth + MFA TOTP + Argon2id, Celery + Redis, Sentry + OpenTelemetry, \
+                  GitHub Actions CI, and an OWASP A01-A10 baseline wired in by default. \
+                  Each generated project boots end-to-end with zero manual cleanup."
 )]
 struct Cli {
     /// Increase log verbosity (-v, -vv, -vvv).

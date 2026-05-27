@@ -2,7 +2,7 @@
 
 > A fast, modern, production-grade Django project generator written in Rust.
 
-`django-bakery` is a single-binary CLI that bakes a complete Django 6 project — **end-to-end**, **wired-up**, **OWASP-baselined** — in roughly 150 ms. Think `cookiecutter-django` but with native speed, 2026-current defaults, and the stack permutations cookiecutter never had (Django Ninja, GraphQL, Nuxt 4, React + Radix, graph databases).
+`django-bakery` is a single-binary CLI that bakes a complete, production-grade Django 6 project — **end-to-end**, **wired-up**, **OWASP A01–A10 + ASVS L2 baselined** — in roughly 150 ms. Every prompt option you'd hand-wire after `django-admin startproject` ships pre-configured: Django Ninja or DRF or GraphQL (Strawberry / Graphene); HTMX or React + Radix Themes or Vue 3 or Nuxt 4 or Next.js 16 (each in Full + Skeleton variants); PostgreSQL 18 / MySQL 9 / MariaDB LTS / SQLite; allauth + MFA TOTP + Argon2id + pwned-passwords + ratelimit; Celery + Redis; Sentry + OpenTelemetry + django-structlog; Docker Compose + Traefik + Let's Encrypt; GitHub Actions CI; type-checked via mypy or pyright. Live version resolution against PyPI + npm at bake time means the generated project pins actually-current versions, not whatever the template author thought was "latest" months ago.
 
 ```bash
 $ django-bakery new
@@ -144,7 +144,7 @@ django-bakery/
 
 - **Templates** live as a real directory tree under `crates/templates/files/`, embedded into the binary via `include_dir!`.
 - **Conditional inclusion** uses `__SKIP__` sentinels emitted by Jinja-in-filename — e.g., `{% if not cookiecutter.use_celery %}__SKIP__{% endif %}config/celery_app.py.j2`. Renders to `__SKIP__config/...` → skipped; or `config/...` → included. Works at the directory level too.
-- **Engine** is `minijinja` (Jinja2-compatible). Templates port 1:1 from cookiecutter-django.
+- **Engine** is `minijinja` (Jinja2-compatible) — same `{{ }}` / `{% %}` syntax any Django developer already knows. The template-context namespace is `{{ cookiecutter.<field> }}` (recipe values) plus `{{ bakery.<field> }}` (computed extras like `bakery.versions.django`, `bakery.secret_key`); existing community Jinja templates port without changes.
 - **Speed** comes from: native binary, no Python startup, single-pass walker, `include_dir` virtual FS.
 
 ## Contributing

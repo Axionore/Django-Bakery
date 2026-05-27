@@ -411,11 +411,16 @@ fn broker_options() -> Vec<Labeled<CeleryBroker>> {
 
 fn prod_email_options() -> Vec<Labeled<ProdEmail>> {
     vec![
-        Labeled { value: ProdEmail::AnymailMailgun, label: "Anymail + Mailgun", hint: "" },
-        Labeled { value: ProdEmail::AnymailSes, label: "Anymail + AWS SES", hint: "" },
-        Labeled { value: ProdEmail::AnymailSendgrid, label: "Anymail + SendGrid", hint: "" },
-        Labeled { value: ProdEmail::Smtp, label: "SMTP", hint: "any provider" },
-        Labeled { value: ProdEmail::Console, label: "Console (dev only)", hint: "print to stdout" },
+        Labeled { value: ProdEmail::AnymailMailgun,   label: "Anymail + Mailgun",   hint: "" },
+        Labeled { value: ProdEmail::AnymailSes,       label: "Anymail + AWS SES",   hint: "" },
+        Labeled { value: ProdEmail::AnymailSendgrid,  label: "Anymail + SendGrid",  hint: "" },
+        Labeled { value: ProdEmail::AnymailMailjet,   label: "Anymail + Mailjet",   hint: "" },
+        Labeled { value: ProdEmail::AnymailMandrill,  label: "Anymail + Mandrill",  hint: "" },
+        Labeled { value: ProdEmail::AnymailPostmark,  label: "Anymail + Postmark",  hint: "" },
+        Labeled { value: ProdEmail::AnymailBrevo,     label: "Anymail + Brevo",     hint: "ex-Sendinblue" },
+        Labeled { value: ProdEmail::AnymailSparkpost, label: "Anymail + SparkPost", hint: "" },
+        Labeled { value: ProdEmail::Smtp,             label: "SMTP",                hint: "any provider" },
+        Labeled { value: ProdEmail::Console,          label: "Console (dev only)",  hint: "print to stdout" },
     ]
 }
 

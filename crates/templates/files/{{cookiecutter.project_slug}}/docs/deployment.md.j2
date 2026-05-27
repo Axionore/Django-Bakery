@@ -37,6 +37,66 @@ railway init && railway up
 railway add postgresql
 ```
 
+## Heroku
+
+```bash
+heroku create {{ cookiecutter.project_slug }}
+heroku stack:set container                       # uses compose/production/django/Dockerfile via heroku.yml
+heroku addons:create heroku-postgresql:essential-0
+heroku addons:create heroku-redis:premium-0      # if use_celery
+heroku config:set DJANGO_SECRET_KEY="$(openssl rand -base64 48)"
+heroku config:set DJANGO_SETTINGS_MODULE=config.settings.production
+heroku config:set DJANGO_ALLOWED_HOSTS="$(heroku info -j | jq -r .app.web_url)"
+git push heroku main
+heroku run python manage.py migrate
+```
+
+`whitenoise` already serves static at the Django process so no separate
+CDN is needed for first deploy. Bump to S3/CloudFront once traffic warrants.
+
+## Render
+
+Render auto-builds from `compose/production/django/Dockerfile`. Add a
+`render.yaml`:
+
+```yaml
+services:
+  - type: web
+    name: {{ cookiecutter.project_slug }}
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./compose/production/django/Dockerfile
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: {{ cookiecutter.project_slug }}-db
+          property: connectionString
+    healthCheckPath: /healthz/
+databases:
+  - name: {{ cookiecutter.project_slug }}-db
+    plan: starter
+    postgresMajorVersion: "18"
+```
+
+`git push` to your linked GitHub repo and Render builds + deploys.
+
+## Railway
+
+```bash
+railway login
+railway init                  # links a new project
+railway add --database postgres
+railway up                    # builds compose/production/django/Dockerfile
+railway run python manage.py migrate
+railway domain                # provisions a public URL
+```
+
+Set env vars via the Railway dashboard or `railway variables set`.
+
 ## Kubernetes
 
 The `compose/production/django/Dockerfile` produces a single image that runs

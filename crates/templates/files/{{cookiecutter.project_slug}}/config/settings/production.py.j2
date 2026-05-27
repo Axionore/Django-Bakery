@@ -79,6 +79,29 @@ EMAIL_BACKEND = "anymail.backends.amazon_ses.EmailBackend"
 INSTALLED_APPS += ["anymail"]
 EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
 ANYMAIL = {"SENDGRID_API_KEY": env("SENDGRID_API_KEY")}
+{%- elif cookiecutter.prod_email == 'anymail-mailjet' %}
+INSTALLED_APPS += ["anymail"]
+EMAIL_BACKEND = "anymail.backends.mailjet.EmailBackend"
+ANYMAIL = {
+    "MAILJET_API_KEY": env("MAILJET_API_KEY"),
+    "MAILJET_SECRET_KEY": env("MAILJET_SECRET_KEY"),
+}
+{%- elif cookiecutter.prod_email == 'anymail-mandrill' %}
+INSTALLED_APPS += ["anymail"]
+EMAIL_BACKEND = "anymail.backends.mandrill.EmailBackend"
+ANYMAIL = {"MANDRILL_API_KEY": env("MANDRILL_API_KEY")}
+{%- elif cookiecutter.prod_email == 'anymail-postmark' %}
+INSTALLED_APPS += ["anymail"]
+EMAIL_BACKEND = "anymail.backends.postmark.EmailBackend"
+ANYMAIL = {"POSTMARK_SERVER_TOKEN": env("POSTMARK_SERVER_TOKEN")}
+{%- elif cookiecutter.prod_email == 'anymail-brevo' %}
+INSTALLED_APPS += ["anymail"]
+EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
+ANYMAIL = {"BREVO_API_KEY": env("BREVO_API_KEY")}
+{%- elif cookiecutter.prod_email == 'anymail-sparkpost' %}
+INSTALLED_APPS += ["anymail"]
+EMAIL_BACKEND = "anymail.backends.sparkpost.EmailBackend"
+ANYMAIL = {"SPARKPOST_API_KEY": env("SPARKPOST_API_KEY")}
 {%- elif cookiecutter.prod_email == 'smtp' %}
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = env("EMAIL_HOST")

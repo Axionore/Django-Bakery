@@ -280,11 +280,16 @@ str_enum! {
 str_enum! {
     /// Production email backend.
     ProdEmail {
-        AnymailMailgun => "anymail-mailgun",
-        AnymailSes => "anymail-ses",
-        AnymailSendgrid => "anymail-sendgrid",
-        Smtp => "smtp",
-        Console => "console",
+        AnymailMailgun   => "anymail-mailgun",
+        AnymailSes       => "anymail-ses",
+        AnymailSendgrid  => "anymail-sendgrid",
+        AnymailMailjet   => "anymail-mailjet",
+        AnymailMandrill  => "anymail-mandrill",
+        AnymailPostmark  => "anymail-postmark",
+        AnymailBrevo     => "anymail-brevo",
+        AnymailSparkpost => "anymail-sparkpost",
+        Smtp             => "smtp",
+        Console          => "console",
     }
 }
 
