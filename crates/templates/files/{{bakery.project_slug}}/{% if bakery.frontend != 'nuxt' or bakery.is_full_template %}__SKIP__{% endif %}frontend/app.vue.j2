@@ -1,0 +1,25 @@
+<script setup lang="ts">
+const config = useRuntimeConfig();
+const appName = config.public.appName;
+const description = "{{ bakery.description }}";
+</script>
+
+<template>
+  <main>
+    <h1>{{ '{{' }} appName {{ '}}' }}</h1>
+    <p>{{ '{{' }} description {{ '}}' }}</p>
+    <p>
+      This is a <strong>skeleton</strong> scaffold. The Django backend is reachable
+      through Nitro's dev proxy at <code>/api</code> and <code>/_allauth</code>.
+      See <code>frontend/README.md</code> for the security baseline.
+    </p>
+  </main>
+</template>
+
+<style>
+main {
+  font-family: system-ui, sans-serif;
+  padding: 2rem;
+  max-width: 640px;
+}
+</style>

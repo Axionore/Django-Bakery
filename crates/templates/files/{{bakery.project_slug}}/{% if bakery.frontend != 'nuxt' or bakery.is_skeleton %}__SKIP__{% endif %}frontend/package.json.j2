@@ -1,0 +1,47 @@
+{
+  "name": "{{ bakery.project_slug | replace('_', '-') }}-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "engines": { "node": ">=24", "pnpm": ">=10" },
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"{% if bakery.has_typed_api %},
+    "openapi:gen": "openapi-typescript http://localhost:8000/api/openapi.json -o app/types/api-schema.d.ts"{% endif %}
+  },
+  "dependencies": {
+    "nuxt": "^{{ bakery.versions.nuxt }}",
+    "vue": "^{{ bakery.versions.vue }}",
+    "vue-router": "^{{ bakery.versions['vue-router'] }}",
+    "@pinia/nuxt": "^{{ bakery.versions['@pinia/nuxt'] }}",
+    "pinia": "^{{ bakery.versions.pinia }}",
+    "tailwindcss": "^{{ bakery.versions.tailwindcss }}",
+    "@tailwindcss/vite": "^{{ bakery.versions['@tailwindcss/vite'] }}",
+    "@vueuse/nuxt": "^{{ bakery.versions['@vueuse/nuxt'] }}",
+    "zod": "^{{ bakery.versions.zod }}"{% if bakery.use_sentry %},
+    "@sentry/nuxt": "^9.0.0"{% endif %}
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^{{ bakery.versions['@nuxt/eslint'] }}",
+    "@nuxt/test-utils": "^{{ bakery.versions['@nuxt/test-utils'] }}",
+    "@vue/test-utils": "^{{ bakery.versions['@vue/test-utils'] }}",
+    "typescript": "^{{ bakery.versions.typescript }}",
+    "eslint": "^{{ bakery.versions.eslint }}",
+    "prettier": "^{{ bakery.versions.prettier }}",
+    "vitest": "^{{ bakery.versions.vitest }}",
+    "@vitest/coverage-v8": "^{{ bakery.versions['@vitest/coverage-v8'] }}",
+    "happy-dom": "^{{ bakery.versions['happy-dom'] }}",
+    "@playwright/test": "^{{ bakery.versions['@playwright/test'] }}"{% if bakery.has_typed_api %},
+    "openapi-typescript": "^{{ bakery.versions['openapi-typescript'] }}"{% endif %}
+  }
+}

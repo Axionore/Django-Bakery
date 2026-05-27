@@ -1,0 +1,41 @@
+# syntax=docker/dockerfile:1.7
+
+# Pinned uv version — bump via Renovate / Dependabot, never use :latest in a build.
+# Buildkit refuses to substitute ARGs in `COPY --from=image:$VAR` directly, so we
+# pull uv via a named stub stage (where ARG substitution at FROM IS allowed) and
+# then `COPY --from=uv-source` (a stage reference — no substitution needed).
+ARG UV_VERSION=0.7.6
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv-source
+
+FROM python:{{ bakery.python_version }}-slim-bookworm AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/venv
+
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+    apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+{%- if bakery.is_mysqlish %}
+    default-libmysqlclient-dev pkg-config \
+{%- endif %}
+    git curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=uv-source /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+
+# Install dependencies first (cached layer).
+COPY pyproject.toml uv.lock* /app/
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project || uv sync --no-install-project
+
+COPY . /app
+
+EXPOSE 8000
+CMD ["/app/compose/local/django/start"]

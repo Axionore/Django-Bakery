@@ -1,0 +1,133 @@
+# {{ bakery.project_name }}
+
+> {{ bakery.description }}
+
+Generated with [`django-bakery`](https://github.com/Axionore/Django-Barkery) ·
+**Django {{ bakery.django_version }}** · **Python {{ bakery.python_version }}**
+{%- if bakery.is_postgres %} · PostgreSQL{% endif %}
+{%- if bakery.api_layer != 'none' %} · {{ bakery.api_layer }}{% endif %}
+{%- if bakery.frontend != 'none' %} · {{ bakery.frontend }}{% endif %}.
+
+---
+
+## Quickstart
+
+```bash
+# Install dependencies (uv handles the venv).
+uv sync
+
+# Copy + edit secrets.
+cp .env.example .env
+$EDITOR .env
+
+# Database
+uv run python manage.py migrate
+uv run python manage.py createsuperuser
+
+# Serve
+{%- if bakery.container_setup != 'none' %}
+docker compose -f compose.local.yml up --build
+{%- else %}
+just serve
+{%- endif %}
+```
+
+Then open <http://localhost:8000>{% if bakery.use_mailpit %}, or <http://localhost:8025> for Mailpit{% endif %}{% if bakery.api_layer == 'ninja' %}, or <http://localhost:8000/api/docs> for the OpenAPI UI{% endif %}.
+
+## Stack
+
+| Layer       | Choice |
+| ----------- | ------ |
+| Framework   | Django {{ bakery.django_version }} |
+| Language    | Python {{ bakery.python_version }} |
+| DB          | {{ bakery.relational_db }}{% if bakery.graph_db != 'none' %} + {{ bakery.graph_db }}{% endif %} |
+| API         | {{ bakery.api_layer }} |
+| Frontend    | {{ bakery.frontend }}{% if bakery.frontend == 'react' and bakery.radix_flavor %} (Radix {{ bakery.radix_flavor }}){% endif %} |
+| CSS         | {{ bakery.css_framework }} |
+| Tasks       | {% if bakery.use_celery %}Celery + {{ bakery.celery_broker }}{% else %}—{% endif %} |
+| Email (prod)| {{ bakery.prod_email }} |
+| Storage     | {{ bakery.storage }} |
+| Observability | {% if bakery.use_observability %}structlog + OpenTelemetry{% else %}standard logging{% endif %} |
+| Errors      | {% if bakery.use_sentry %}Sentry{% else %}—{% endif %} |
+| CI/CD       | {{ bakery.ci }} |
+| Type checks | {{ bakery.type_checker }} |
+| VCS         | {{ bakery.version_control }} |
+
+## Common commands
+
+```bash
+just              # list all recipes
+just sync         # uv sync
+just serve        # dev server (no Docker)
+just up           # docker compose up (local)
+just migrate      # apply migrations
+just fmt          # ruff + djlint
+just lint         # ruff + djlint + {{ bakery.type_checker }}
+just test         # pytest
+just cov          # pytest + coverage report
+just audit        # pip-audit + gitleaks
+```
+
+## Security baseline (what's already on)
+
+- **Auth** — django-allauth with email-as-username, **MFA (TOTP + recovery codes)**, Argon2 password hashing first, 12-char min password length.
+- **Headers** — HSTS (1y) + preload, secure cookies, `SECURE_REFERRER_POLICY=same-origin`, `X-Frame-Options=DENY` (prod).
+- **CSP** — `django-csp` configured; tighten the policy in `config/settings/base.py` for inline scripts.
+- **CSRF** — strict same-site cookies; `CSRF_TRUSTED_ORIGINS` driven by env.
+- **CORS** — `django-cors-headers`, deny-by-default; whitelist via `CORS_ALLOWED_ORIGINS` env.
+- **Rate limiting** — `django-ratelimit` ready to decorate auth views{% if bakery.api_layer == 'drf' %}; DRF throttle classes in `REST_FRAMEWORK`{% endif %}.
+- **Secrets** — never in code; `django-environ` reads `.env*`; `.env` is `.gitignore`'d.
+- **Audit** — `gitleaks` on every commit (pre-commit hook); `pip-audit` in CI.
+- **Hashing** — Argon2id first; legacy hashers retained for migration.
+
+See [`docs/security.md`](docs/security.md) for the full threat model + ASVS L2 checklist.
+
+## Authentication
+
+- **Server-rendered**: `accounts/login/`, `accounts/signup/`, `accounts/password/reset/` — provided by django-allauth.
+- **Admin**: `/{{ '{' }}{{ '{' }}DJANGO_ADMIN_URL{{ '}' }}{{ '}' }}` (default `admin/`).
+{%- if bakery.has_frontend_spa %}
+- **SPA (headless)**: JSON endpoints under `/_allauth/`. Login, signup, MFA challenge, password reset all available. See `frontend/src/auth/` for a typed client.
+{%- endif %}
+- **MFA**: TOTP authenticator app + recovery codes. Enable per-user from the profile page.
+
+## Testing
+
+```bash
+just test                       # all tests
+uv run pytest -k "users"        # one app
+uv run pytest --reuse-db        # skip DB reset between runs
+just cov                        # coverage report → htmlcov/index.html
+```
+
+## Project layout
+
+```
+.
+├── apps/
+│   ├── core/        # home page, health checks, error handlers
+│   ├── users/       # custom User model, profile views
+{%- if bakery.api_layer != 'none' %}
+│   └── api/         # {{ bakery.api_layer }} routes
+{%- endif %}
+├── config/
+│   ├── settings/    # base.py, local.py, production.py, test.py
+│   ├── urls.py
+│   ├── asgi.py
+│   └── wsgi.py
+├── templates/       # base.html, error pages, allauth overrides
+├── static/          # CSS, JS, images
+{%- if bakery.container_setup != 'none' %}
+├── compose/         # Docker assets
+├── compose.local.yml
+└── compose.production.yml
+{%- endif %}
+```
+
+## Deployment
+
+See [`docs/deployment.md`](docs/deployment.md) for {% if bakery.container_setup == 'compose-traefik' %}Traefik + Let's Encrypt{% elif bakery.container_setup == 'compose-only' %}Docker Compose{% else %}bare-metal{% endif %} deploy notes.
+
+## License
+
+{% if bakery.license == 'mit' %}MIT{% elif bakery.license == 'apache-2' %}Apache 2.0{% elif bakery.license == 'bsd-3' %}BSD-3-Clause{% else %}Proprietary — all rights reserved{% endif %} © {{ bakery.year }} {{ bakery.author_name }}.

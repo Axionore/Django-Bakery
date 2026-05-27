@@ -10,4 +10,4 @@ pub static PROJECT_TEMPLATE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/files")
 
 /// The directory inside `PROJECT_TEMPLATE` whose name (after Jinja rendering) becomes the
 /// generated project's root folder.
-pub const PROJECT_ROOT_TOKEN: &str = "{{cookiecutter.project_slug}}";
+pub const PROJECT_ROOT_TOKEN: &str = "{{bakery.project_slug}}";

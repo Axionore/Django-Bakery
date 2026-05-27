@@ -1,0 +1,79 @@
+# syntax=docker/dockerfile:1.7
+
+# Pinned uv version — bump via Renovate / Dependabot, never use :latest in prod.
+# Buildkit refuses to substitute ARGs in `COPY --from=image:$VAR` directly, so we
+# pull uv via a named stub stage (where ARG substitution at FROM IS allowed) and
+# then `COPY --from=uv-source` (a stage reference — no substitution needed).
+ARG UV_VERSION=0.7.6
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv-source
+
+# ----- builder ----------------------------------------------------------------
+FROM python:{{ bakery.python_version }}-slim-bookworm AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/venv \
+    UV_COMPILE_BYTECODE=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+{%- if bakery.is_mysqlish %}
+    default-libmysqlclient-dev pkg-config \
+{%- endif %}
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=uv-source /uv /uvx /usr/local/bin/
+
+WORKDIR /app
+COPY pyproject.toml uv.lock* /app/
+RUN uv sync --frozen --no-dev --no-install-project
+
+COPY . /app
+RUN uv sync --frozen --no-dev
+
+# ----- runtime ----------------------------------------------------------------
+FROM python:{{ bakery.python_version }}-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/venv/bin:$PATH"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+{%- if bakery.is_mysqlish %}
+    default-libmysqlclient-dev \
+{%- endif %}
+    gosu curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system django \
+    && useradd --system --gid django --create-home --home-dir /home/django django
+
+COPY --from=builder /venv /venv
+COPY --from=builder /app /app
+RUN chown -R django:django /app
+
+COPY --chown=django:django compose/production/django/start /start
+COPY --chown=django:django compose/production/django/entrypoint /entrypoint
+{%- if bakery.use_celery %}
+COPY --chown=django:django compose/production/django/celery/worker/start /start-celeryworker
+COPY --chown=django:django compose/production/django/celery/beat/start /start-celerybeat
+COPY --chown=django:django compose/production/django/celery/flower/start /start-flower
+RUN chmod +x /start-celeryworker /start-celerybeat /start-flower
+{%- endif %}
+RUN chmod +x /start /entrypoint
+
+USER django
+WORKDIR /app
+EXPOSE 5000
+
+# Liveness probe — `/healthz/` is wired into every generated project and
+# returns 200 once Django + DB connection are up. Letting `docker compose`
+# observe container health (vs assuming a process-up means service-up) was an
+# OWASP A09 / ops-resilience gap; this directive closes it.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl --fail --silent --show-error http://127.0.0.1:5000/healthz/ || exit 1
+
+ENTRYPOINT ["/entrypoint"]
+CMD ["/start"]

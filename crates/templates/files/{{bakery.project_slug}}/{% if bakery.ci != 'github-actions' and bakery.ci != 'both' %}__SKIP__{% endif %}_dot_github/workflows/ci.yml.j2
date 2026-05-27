@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-{{ '${{ github.ref }}' }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DATABASE_URL: {% if bakery.is_postgres %}postgres://postgres:postgres@localhost:5432/test_ci{% else %}sqlite:///:memory:{% endif %}
+{%- if bakery.is_postgres %}
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: test_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+{%- endif %}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: latest
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install {{ bakery.python_version }}
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras --group dev
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run djlint --check templates/
+{%- if bakery.type_checker == 'mypy' %}
+          uv run mypy .
+{%- elif bakery.type_checker == 'pyright' %}
+          uv run pyright
+{%- endif %}
+
+      - name: Audit dependencies
+        # `pip-audit --strict` fails the build on any advisory. To suppress a
+        # specific CVE add `--ignore-vuln <CVE>` with a documented reason; do
+        # NOT pipe to `|| true` — that defeats the gate entirely.
+        run: |
+          uv tool run pip-audit --strict
+          uv tool run --from gitleaks gitleaks dir . --no-banner --no-git
+
+      - name: Run tests
+        run: uv run pytest -ra --cov=apps --cov=config --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  container-scan:
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+{%- if bakery.container_setup == 'none' %}
+    if: false  # no container setup chosen
+{%- endif %}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t ci-image:${{ '{{ github.sha }}' }} -f compose/production/django/Dockerfile .
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.30.0
+        with:
+          image-ref: ci-image:${{ '{{ github.sha }}' }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: 1
+          ignore-unfixed: true

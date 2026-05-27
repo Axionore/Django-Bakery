@@ -1,0 +1,61 @@
+{
+  "name": "{{ bakery.project_slug | replace('_', '-') }}-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "typecheck": "tsc -b --noEmit"{% if bakery.has_typed_api %},
+    "openapi:gen": "openapi-typescript http://localhost:8000/api/openapi.json -o src/api/schema.d.ts"{% endif %}
+  },
+  "dependencies": {
+    "react": "^{{ bakery.versions.react }}",
+    "react-dom": "^{{ bakery.versions['react-dom'] }}",
+    "react-router": "^{{ bakery.versions['react-router'] }}",
+    "@radix-ui/themes": "^{{ bakery.versions['@radix-ui/themes'] }}",
+    "@radix-ui/react-icons": "^{{ bakery.versions['@radix-ui/react-icons'] }}",
+    "@radix-ui/colors": "^{{ bakery.versions['@radix-ui/colors'] }}",
+    "@tanstack/react-query": "^{{ bakery.versions['@tanstack/react-query'] }}",
+    "zustand": "^{{ bakery.versions.zustand }}",
+    "zod": "^{{ bakery.versions.zod }}"{% if bakery.use_sentry %},
+    "@sentry/react": "^9.0.0"{% endif %}
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^{{ bakery.versions['@vitejs/plugin-react'] }}",
+    "vite": "^{{ bakery.versions.vite }}",
+    "typescript": "^{{ bakery.versions.typescript }}",
+    "eslint": "^{{ bakery.versions.eslint }}",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "prettier": "^{{ bakery.versions.prettier }}",
+    "vitest": "^{{ bakery.versions.vitest }}",
+    "@vitest/coverage-v8": "^{{ bakery.versions['@vitest/coverage-v8'] }}",
+    "jsdom": "^{{ bakery.versions.jsdom }}",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/user-event": "^14.5.2",
+    "@playwright/test": "^{{ bakery.versions['@playwright/test'] }}"{% if bakery.has_typed_api %},
+    "openapi-typescript": "^{{ bakery.versions['openapi-typescript'] }}"{% endif %}
+  }
+}

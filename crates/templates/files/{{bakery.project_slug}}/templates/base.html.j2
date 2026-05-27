@@ -1,0 +1,61 @@
+<!doctype html>
+{% raw %}{% load static %}{% endraw %}
+<html lang="en" class="h-full">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{% raw %}{% block description %}{% endraw %}{{ bakery.description }}{% raw %}{% endblock %}{% endraw %}">
+    <title>{% raw %}{% block title %}{% endraw %}{{ bakery.project_name }}{% raw %}{% endblock %}{% endraw %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% raw %}{% static 'favicon.svg' %}{% endraw %}">
+{%- if bakery.frontend == 'htmx-alpine' and bakery.css_framework == 'tailwind' %}
+    {# Tailwind v4 requires a build step (`@theme`, `@import "tailwindcss"`):
+       `app.css` is the SOURCE, `app.compiled.css` is the compiled output served
+       to the browser. Run `just css-build` (or `pnpm css:build`) to regenerate. #}
+    <link rel="stylesheet" href="{% raw %}{% static 'css/app.compiled.css' %}{% endraw %}">
+{%- else %}
+    <link rel="stylesheet" href="{% raw %}{% static 'css/app.css' %}{% endraw %}">
+{%- endif %}
+{%- if bakery.frontend == 'htmx-alpine' %}
+    <script src="https://unpkg.com/htmx.org@{{ bakery.versions['htmx.org'] | default('2.0.4') }}" defer></script>
+    <script src="https://unpkg.com/alpinejs@{{ bakery.versions.alpinejs | default('3.14.0') }}/dist/cdn.min.js" defer></script>
+{%- endif %}
+    {% raw %}{% block extra_head %}{% endblock %}{% endraw %}
+</head>
+<body class="h-full antialiased bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
+<nav class="border-b border-slate-200 dark:border-slate-800">
+    <div class="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+        <a href="{% raw %}{% url 'core:home' %}{% endraw %}" class="font-semibold tracking-tight">{{ bakery.project_name }}</a>
+        <div class="flex gap-4 text-sm">
+            <a href="{% raw %}{% url 'core:about' %}{% endraw %}" class="hover:underline">About</a>
+            {% raw %}{% if user.is_authenticated %}{% endraw %}
+                <a href="{% raw %}{% url 'users:profile' %}{% endraw %}" class="hover:underline">Profile</a>
+                <form method="post" action="{% raw %}{% url 'account_logout' %}{% endraw %}" class="inline">
+                    {% raw %}{% csrf_token %}{% endraw %}
+                    <button type="submit" class="hover:underline">Sign out</button>
+                </form>
+            {% raw %}{% else %}{% endraw %}
+                <a href="{% raw %}{% url 'account_login' %}{% endraw %}" class="hover:underline">Sign in</a>
+                <a href="{% raw %}{% url 'account_signup' %}{% endraw %}" class="hover:underline">Sign up</a>
+            {% raw %}{% endif %}{% endraw %}
+        </div>
+    </div>
+</nav>
+<main class="mx-auto max-w-6xl px-4 py-10">
+    {% raw %}{% if messages %}
+        <ul class="mb-6 space-y-2">
+        {% for message in messages %}
+            <li class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm">{{ message }}</li>
+        {% endfor %}
+        </ul>
+    {% endif %}{% endraw %}
+    {% raw %}{% block content %}{% endblock %}{% endraw %}
+</main>
+<footer class="mt-10 border-t border-slate-200 dark:border-slate-800">
+    <div class="mx-auto max-w-6xl px-4 py-6 text-xs text-slate-500">
+        © {{ bakery.year }} {{ bakery.author_name }} ·
+{%- if bakery.license == 'mit' %} MIT licensed{% elif bakery.license == 'apache-2' %} Apache-2.0 licensed{% else %} all rights reserved{% endif %}
+    </div>
+</footer>
+{% raw %}{% block extra_body %}{% endblock %}{% endraw %}
+</body>
+</html>

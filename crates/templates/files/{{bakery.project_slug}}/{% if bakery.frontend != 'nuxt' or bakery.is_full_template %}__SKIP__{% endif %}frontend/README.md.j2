@@ -1,0 +1,57 @@
+# {{ bakery.project_name }} — frontend (Nuxt 4 skeleton)
+
+> Minimal Nuxt 4 + Vue 3.6 + TypeScript 6 skeleton. No auth, no UI library, no Pinia — bring your own.
+>
+> What's wired for you: the Nitro proxy to Django, the OWASP defaults, the Compose service, and the `pnpm-workspace.yaml`.
+
+## Run it
+
+```bash
+pnpm install
+pnpm dev                          # nuxt on http://localhost:{{ bakery.frontend_dev_port }}
+docker compose -f compose.local.yml up   # OR the full stack
+```
+
+## What's in the box
+
+```
+frontend/
+├── package.json    # nuxt 4, vue 3.6, ts 6, eslint — nothing else
+├── nuxt.config.ts  # Nitro proxies /api + /_allauth + /static + /media
+├── app.vue         # Hello world
+├── eslint.config.js
+├── tsconfig.json   # extends .nuxt/tsconfig.json
+└── .env.example
+```
+
+## OWASP Top 10 baseline (already on)
+
+- **A01** — backend authoritative; client guards are UX only
+- **A02** — session cookies (HttpOnly) — never JWT in localStorage
+- **A03** — Vue auto-escape; `vue/no-v-html` ESLint banned
+- **A05** — Nitro proxies keep /api + /_allauth same-origin; no wildcard CORS
+- **A06** — `pnpm audit --prod` in CI; pinned majors
+- **A08** — `pnpm-lock.yaml` committed
+- **A09** — `sourcemap: false` for prod builds
+
+## Adding what you need
+
+```bash
+pnpm add @pinia/nuxt pinia                       # state mgmt
+pnpm add @nuxtjs/tailwindcss                     # tailwind v4
+pnpm add @nuxt/test-utils @playwright/test -D    # testing
+pnpm add @nuxtjs/sentry                          # error reporting (opt-in)
+```
+
+For auth, copy the Pinia + composable pattern from the [django-bakery Full template](https://github.com/Axionore/Django-Barkery) — it's a typed allauth-headless client with session cookies. Never store tokens in `localStorage`.
+
+## Calling the backend
+
+The Nitro proxy makes `/api/*` and `/_allauth/*` first-party requests. From any composable / page:
+
+```ts
+const me = await $fetch("/api/me", { credentials: "include" });
+```
+
+If your project uses **Django Ninja** (`api_layer = ninja`), the backend uses `django_auth` — session-based. See [django-ninja auth docs](https://django-ninja.dev/guides/authentication/).
+If it uses **DRF** (`api_layer = drf`), the backend uses `SessionAuthentication` — see [DRF auth docs](https://www.django-rest-framework.org/api-guide/authentication/).

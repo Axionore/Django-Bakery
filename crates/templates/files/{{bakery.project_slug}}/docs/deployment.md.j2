@@ -1,0 +1,117 @@
+# Deployment
+
+This project ships with **{{ bakery.container_setup }}** scaffolding. Pick a target below.
+
+## Docker Compose (single host)
+
+```bash
+# On the host:
+cp .env.example .env  # then fill in production secrets
+docker compose -f compose.production.yml up -d --build
+```
+
+{% if bakery.container_setup == 'compose-traefik' %}
+Traefik handles TLS termination automatically via Let's Encrypt (ACME TLS-ALPN-01).
+Point `{{ bakery.domain_name }}` A record at the host's public IP and wait for
+certificate issuance (1–2 min).
+{% endif %}
+
+## Fly.io
+
+```bash
+fly launch --no-deploy            # creates fly.toml from your Dockerfile
+fly secrets set DJANGO_SECRET_KEY="…"
+fly secrets set DATABASE_URL="…"
+fly deploy
+```
+
+## Render
+
+Create a **Web Service** pointed at `compose/production/django/Dockerfile`; add a
+Postgres add-on; copy its `DATABASE_URL` into env vars.
+
+## Railway
+
+```bash
+railway init && railway up
+railway add postgresql
+```
+
+## Heroku
+
+```bash
+heroku create {{ bakery.project_slug }}
+heroku stack:set container                       # uses compose/production/django/Dockerfile via heroku.yml
+heroku addons:create heroku-postgresql:essential-0
+heroku addons:create heroku-redis:premium-0      # if use_celery
+heroku config:set DJANGO_SECRET_KEY="$(openssl rand -base64 48)"
+heroku config:set DJANGO_SETTINGS_MODULE=config.settings.production
+heroku config:set DJANGO_ALLOWED_HOSTS="$(heroku info -j | jq -r .app.web_url)"
+git push heroku main
+heroku run python manage.py migrate
+```
+
+`whitenoise` already serves static at the Django process so no separate
+CDN is needed for first deploy. Bump to S3/CloudFront once traffic warrants.
+
+## Render
+
+Render auto-builds from `compose/production/django/Dockerfile`. Add a
+`render.yaml`:
+
+```yaml
+services:
+  - type: web
+    name: {{ bakery.project_slug }}
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./compose/production/django/Dockerfile
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: {{ bakery.project_slug }}-db
+          property: connectionString
+    healthCheckPath: /healthz/
+databases:
+  - name: {{ bakery.project_slug }}-db
+    plan: starter
+    postgresMajorVersion: "18"
+```
+
+`git push` to your linked GitHub repo and Render builds + deploys.
+
+## Railway
+
+```bash
+railway login
+railway init                  # links a new project
+railway add --database postgres
+railway up                    # builds compose/production/django/Dockerfile
+railway run python manage.py migrate
+railway domain                # provisions a public URL
+```
+
+Set env vars via the Railway dashboard or `railway variables set`.
+
+## Kubernetes
+
+The `compose/production/django/Dockerfile` produces a single image that runs
+`gunicorn` on port 5000. Deploy as a `Deployment` + `Service` + `Ingress`. Set
+the `DJANGO_SETTINGS_MODULE=config.settings.production` env, mount your
+`DATABASE_URL` from a secret, and route `/healthz` + `/readyz` to your liveness
+and readiness probes respectively.
+
+## Pre-flight checklist
+
+Run **every** time before a production deploy:
+
+```bash
+just deploy-check    # python manage.py check --deploy --fail-level=WARNING
+just test            # full test suite passes
+just audit           # pip-audit + gitleaks
+docker build -t test -f compose/production/django/Dockerfile .  # image builds
+```

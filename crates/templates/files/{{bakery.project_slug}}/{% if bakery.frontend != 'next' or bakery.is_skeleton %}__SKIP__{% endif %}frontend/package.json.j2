@@ -1,0 +1,48 @@
+{
+  "name": "{{ bakery.project_slug | replace('_', '-') }}-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "engines": { "node": ">=24", "pnpm": ">=10" },
+  "scripts": {
+    "dev": "next dev --port {{ bakery.frontend_dev_port }}",
+    "build": "next build",
+    "start": "next start --port {{ bakery.frontend_dev_port }}",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"{% if bakery.has_typed_api %},
+    "openapi:gen": "openapi-typescript http://localhost:8000/api/openapi.json -o lib/api/schema.d.ts"{% endif %}
+  },
+  "dependencies": {
+    "next": "^{{ bakery.versions.next }}",
+    "react": "^{{ bakery.versions.react }}",
+    "react-dom": "^{{ bakery.versions['react-dom'] }}",
+    "@radix-ui/themes": "^{{ bakery.versions['@radix-ui/themes'] }}",
+    "@radix-ui/react-icons": "^{{ bakery.versions['@radix-ui/react-icons'] }}",
+    "@radix-ui/colors": "^{{ bakery.versions['@radix-ui/colors'] }}",
+    "@tanstack/react-query": "^{{ bakery.versions['@tanstack/react-query'] }}",
+    "zustand": "^{{ bakery.versions.zustand }}",
+    "zod": "^{{ bakery.versions.zod }}"{% if bakery.use_sentry %},
+    "@sentry/nextjs": "^9.0.0"{% endif %}
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^{{ bakery.versions.typescript }}",
+    "eslint": "^{{ bakery.versions.eslint }}",
+    "eslint-config-next": "^{{ bakery.versions['eslint-config-next'] }}",
+    "prettier": "^{{ bakery.versions.prettier }}",
+    "vitest": "^{{ bakery.versions.vitest }}",
+    "@vitest/coverage-v8": "^{{ bakery.versions['@vitest/coverage-v8'] }}",
+    "jsdom": "^{{ bakery.versions.jsdom }}",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@playwright/test": "^{{ bakery.versions['@playwright/test'] }}"{% if bakery.has_typed_api %},
+    "openapi-typescript": "^{{ bakery.versions['openapi-typescript'] }}"{% endif %}
+  }
+}

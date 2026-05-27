@@ -1,0 +1,27 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "node:path";
+
+const BACKEND = process.env.VITE_BACKEND_URL ?? "http://localhost:8000";
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: { alias: { "~": path.resolve(__dirname, "src") } },
+  server: {
+    host: "0.0.0.0",
+    port: {{ bakery.frontend_dev_port }},
+    strictPort: true,
+    // Same-origin proxy keeps cookies + CSRF working without CORS holes (OWASP A05).
+    proxy: {
+      "/api": { target: BACKEND, changeOrigin: true, secure: false },
+      "/_allauth": { target: BACKEND, changeOrigin: true, secure: false },
+      "/static": { target: BACKEND, changeOrigin: true, secure: false },
+      "/media": { target: BACKEND, changeOrigin: true, secure: false },
+    },
+  },
+  build: {
+    outDir: "dist",
+    sourcemap: false, // Don't ship source maps to prod (OWASP A09 — info disclosure).
+    target: "es2024",
+  },
+});

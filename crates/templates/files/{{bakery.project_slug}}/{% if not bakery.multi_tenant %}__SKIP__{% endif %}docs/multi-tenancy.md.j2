@@ -1,0 +1,113 @@
+# Multi-tenancy
+
+This project ships with **`django-tenants`** wired in: each tenant gets a
+native PostgreSQL schema, isolated from every other tenant at the database
+layer.
+
+## Mental model
+
+```
+                ┌─ public schema ───────────────────┐
+                │  apps.tenants  (Tenant, Domain)   │
+                │  apps.users   (User — global)     │
+                │  apps.flags                       │
+                └───────────────────────────────────┘
+                          ▲ hostname lookup
+        ┌─────────────────┼─────────────────────┐
+        ▼                 ▼                     ▼
+  acme schema       widgetco schema       beta-corp schema
+  ┌──────────┐      ┌────────────┐        ┌──────────────┐
+  │ TENANT_  │      │ TENANT_    │        │ TENANT_      │
+  │ APPS …   │      │ APPS …     │        │ APPS …       │
+  └──────────┘      └────────────┘        └──────────────┘
+```
+
+- `SHARED_APPS` (the `public` schema): `tenants`, `users`, flags, admin —
+  things every tenant uses but the data is global.
+- `TENANT_APPS` (per-schema): your business models. Same migrations, separate
+  data, zero cross-tenant leakage at the DB level.
+
+## Bootstrap
+
+First deploy (or `docker compose up --build` for the first time):
+
+```bash
+# Apply migrations to the public schema (SHARED_APPS).
+uv run python manage.py migrate_schemas --shared
+
+# Ensure the public Tenant + Domain row exist (idempotent).
+uv run python manage.py bootstrap_public_tenant
+
+# Create your first paying tenant.
+uv run python manage.py create_tenant \
+    --schema=acme --name="Acme Inc" \
+    --paid-until=2027-01-01 \
+    --domain-domain=acme.{{ bakery.domain_name }} \
+    --domain-is_primary=true
+```
+
+The new tenant's schema is created automatically (`auto_create_schema=True`
+on the Tenant model) and all `TENANT_APPS` migrations run against it.
+
+## Routing
+
+`django_tenants.middleware.main.TenantMainMiddleware` is the first middleware.
+On every request:
+
+1. It reads `request.get_host()` (e.g. `acme.{{ bakery.domain_name }}`).
+2. Looks up `Domain.objects.get(domain=...)`.
+3. Sets `connection.set_schema(tenant.schema_name)` → every ORM query runs
+   against the tenant's schema for the rest of the request.
+
+## Adding a tenant model
+
+Put it in `TENANT_APPS`. Migrations look identical to a single-tenant app —
+django-tenants handles schema scoping automatically:
+
+```python
+# apps/projects/models.py
+class Project(models.Model):
+    name = models.CharField(max_length=200)
+    # No tenant_id column needed — schema isolation handles it.
+```
+
+```bash
+uv run python manage.py makemigrations projects
+uv run python manage.py migrate_schemas         # applies to every tenant
+```
+
+## What stays in the public schema
+
+- `apps.tenants` — Tenant + Domain (must be public; routing depends on it)
+- `apps.users` — by default users are global, so they can switch tenants
+  (set up via UserTenantPermissions in the future if you want per-tenant
+  invitations). Move to `TENANT_APPS` if your users live inside one tenant.
+- `django.contrib.admin`, `django.contrib.contenttypes`,
+  `django.contrib.sessions`, `django.contrib.auth` — public.
+- `django-waffle` flags if you ship the feature-flags add-on — flags are
+  global, per-tenant flag overrides live in `Switch.users` via UserTenantPermission.
+
+## Tenant routing in dev
+
+For local development without DNS:
+
+```
+# /etc/hosts
+127.0.0.1   {{ bakery.domain_name }}
+127.0.0.1   acme.{{ bakery.domain_name }}
+127.0.0.1   widgetco.{{ bakery.domain_name }}
+```
+
+Then `http://acme.{{ bakery.domain_name }}:8000/` routes to the acme schema.
+
+## Operational gotchas
+
+- **Backup**: `pg_dump --schema=acme` backs up one tenant. `pg_dumpall` for all.
+- **Migrations**: `migrate_schemas` (the django-tenants command), NOT plain
+  `migrate`. The latter only touches the public schema.
+- **Async tasks**: Celery workers must call `tenant_context(tenant)` before
+  touching tenant data. `django-tenants-celery-beat` adds per-tenant
+  scheduling if you need it.
+- **Test DB**: tests use `django_tenants.test.TenantTestCase`; the test
+  runner creates a fresh schema per test class. Slower than vanilla pytest
+  but isolation is exact.

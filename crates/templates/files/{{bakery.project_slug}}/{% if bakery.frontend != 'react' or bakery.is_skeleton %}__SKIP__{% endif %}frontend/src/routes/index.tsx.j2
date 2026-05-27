@@ -1,0 +1,104 @@
+import { Link } from "react-router";
+import { Badge, Box, Button, Card, Flex, Grid, Heading, Text } from "@radix-ui/themes";
+import { ArrowRightIcon, CheckCircledIcon, MinusCircledIcon{% if bakery.api_layer != 'none' %}, RocketIcon{% endif %} } from "@radix-ui/react-icons";
+
+import { useAuth } from "~/auth/store";
+import { env } from "~/env";
+
+const DESCRIPTION = "{{ bakery.description }}";
+
+const STACK_CARDS = [
+  {
+    label: "Backend",
+    title: "Django {{ bakery.django_version }}",
+    sub: "Python {{ bakery.python_version }}",
+  },
+  {
+    label: "Auth",
+    title: "django-allauth",
+    sub: "MFA TOTP · Argon2id",
+  },
+  {
+    label: "API",
+    title: "{% if bakery.api_layer == 'ninja' %}Django Ninja{% elif bakery.api_layer == 'drf' %}DRF + Spectacular{% elif bakery.api_layer == 'graphql-strawberry' %}Strawberry GraphQL{% elif bakery.api_layer == 'graphql-graphene' %}Graphene GraphQL{% else %}—{% endif %}",
+    sub: "{% if bakery.api_layer == 'none' %}No API layer{% else %}OpenAPI 3.1 · session-auth{% endif %}",
+    cold: {{ 'true' if bakery.api_layer == 'none' else 'false' }},
+  },
+  {
+    label: "Database",
+    title: "{% if bakery.relational_db == 'postgres' %}PostgreSQL 18{% elif bakery.relational_db == 'mysql' %}MySQL 9{% elif bakery.relational_db == 'mariadb' %}MariaDB LTS{% else %}SQLite{% endif %}",
+    sub: "{% if bakery.relational_db == 'sqlite' %}Local-file dev DB{% else %}ATOMIC_REQUESTS · CONN_MAX_AGE{% endif %}",
+  },
+];
+
+{% raw %}
+export function HomePage() {
+  const { user } = useAuth();
+  return (
+    <Flex direction="column" gap="7" py="6">
+      <Box>
+        <Box mb="3">
+          <Badge color="green" variant="soft" radius="full">
+            <CheckCircledIcon /> SPA + Django · OWASP-baselined · Production-ready
+          </Badge>
+        </Box>
+        <Heading size="9" mb="3">
+          {env().VITE_APP_NAME}
+        </Heading>
+        <Text as="p" size="4" color="gray" style={{ maxWidth: 640 }}>
+          {DESCRIPTION}
+        </Text>
+      </Box>
+      <Flex gap="3" wrap="wrap">
+        {user ? (
+          <Button asChild size="3">
+            <Link to="/account/profile">
+              Your profile <ArrowRightIcon />
+            </Link>
+          </Button>
+        ) : (
+          <Button asChild size="3">
+            <Link to="/account/login">
+              Sign in <ArrowRightIcon />
+            </Link>
+          </Button>
+        )}
+{% endraw %}
+{%- if bakery.api_layer != 'none' %}
+{% raw %}
+        <Button asChild variant="soft" size="3">
+          <a href="/api/docs" target="_blank" rel="noreferrer">
+            <RocketIcon /> API docs
+          </a>
+        </Button>
+{% endraw %}
+{%- endif %}
+{% raw %}
+        <Button asChild variant="ghost" size="3">
+          <Link to="/about">Learn more</Link>
+        </Button>
+      </Flex>
+      <Grid columns={{ initial: "1", sm: "2", lg: "4" }} gap="3">
+        {STACK_CARDS.map((c) => (
+          <Card key={c.label} size="2">
+            <Flex direction="column" gap="2">
+              <Flex justify="between" align="center">
+                <Text size="1" weight="medium" color="gray" style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {c.label}
+                </Text>
+                {c.cold ? (
+                  <MinusCircledIcon color="var(--gray-9)" />
+                ) : (
+                  <CheckCircledIcon color="var(--green-9)" />
+                )}
+              </Flex>
+              <Text size="3" weight="bold">{c.title}</Text>
+              <Text size="2" color="gray">{c.sub}</Text>
+            </Flex>
+          </Card>
+        ))}
+      </Grid>
+    </Flex>
+  );
+}
+{% endraw %}

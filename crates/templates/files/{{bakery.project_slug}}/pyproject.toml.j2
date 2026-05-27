@@ -1,0 +1,262 @@
+[project]
+name = "{{ bakery.project_slug | replace('_', '-') }}"
+version = "0.1.0"
+description = "{{ bakery.description }}"
+readme = "README.md"
+requires-python = ">={{ bakery.python_version }}"
+authors = [{ name = "{{ bakery.author_name }}", email = "{{ bakery.author_email }}" }]
+license = { text = "{% if bakery.license == 'mit' %}MIT{% elif bakery.license == 'apache-2' %}Apache-2.0{% elif bakery.license == 'bsd-3' %}BSD-3-Clause{% else %}Proprietary{% endif %}" }
+keywords = ["django", "{{ bakery.project_slug }}"]
+classifiers = [
+    "Framework :: Django",
+    "Framework :: Django :: {{ bakery.django_version }}",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: {{ bakery.python_version }}",
+]
+
+dependencies = [
+    # --- core ---
+    # Version floors below come from `bakery.versions.*` — see crates/engine/src/versions.rs.
+    # Refresh by running `django-bakery new` in `--online` mode (the default).
+    "Django>={{ bakery.django_version }},<7.0",
+    "django-environ>={{ bakery.versions['django-environ'] }}",
+    "django-allauth[mfa,socialaccount]>={{ bakery.versions['django-allauth'] }}",
+    "django-csp>={{ bakery.versions['django-csp'] }}",
+    "django-cors-headers>={{ bakery.versions['django-cors-headers'] }}",
+    "django-ratelimit>={{ bakery.versions['django-ratelimit'] }}",
+    # Pwned-passwords validator hits HIBP's k-anonymity API on signup/password-change.
+    # No password ever leaves the server; only the SHA-1 prefix (first 5 chars) is sent.
+    "pwned-passwords-django>=2.1",
+    # Always-on structured JSON logging (even without full OpenTelemetry stack).
+    "python-json-logger>=3.2",
+    "django-extensions>={{ bakery.versions['django-extensions'] }}",
+    "argon2-cffi>={{ bakery.versions['argon2-cffi'] }}",
+    "Pillow>=11.1",
+    "whitenoise[brotli]>={{ bakery.versions.whitenoise }}",
+    # --- runtime ---
+    "gunicorn>={{ bakery.versions.gunicorn }}",
+    "uvicorn[standard]>={{ bakery.versions.uvicorn }}",
+    "asgiref>=3.8",
+    # --- structured logging ---
+{%- if bakery.use_observability %}
+    "structlog>={{ bakery.versions.structlog }}",
+    "django-structlog>={{ bakery.versions['django-structlog'] }}",
+    "opentelemetry-api>=1.30",
+    "opentelemetry-sdk>={{ bakery.versions['opentelemetry-sdk'] }}",
+    "opentelemetry-instrumentation-django>=0.51b0",
+    "opentelemetry-instrumentation-psycopg>=0.51b0",
+    "opentelemetry-exporter-otlp>=1.30",
+{%- endif %}
+{%- if bakery.use_sentry %}
+    "sentry-sdk[django]>={{ bakery.versions['sentry-sdk'] }}",
+{%- endif %}
+{%- if bakery.use_feature_flags %}
+    "django-waffle>=4.2",
+{%- endif %}
+{%- if bakery.is_postgres %}
+    # --- database (PostgreSQL) ---
+    "psycopg[binary,pool]>={{ bakery.versions.psycopg }}",
+{%- if bakery.multi_tenant %}
+    # --- multi-tenancy ---
+    # django-tenants gives PG-schema-per-tenant isolation. See docs/multi-tenancy.md.
+    "django-tenants>={{ bakery.versions['django-tenants'] }}",
+{%- endif %}
+{%- elif bakery.is_mysqlish %}
+    # PyMySQL — pure-Python MySQL/MariaDB driver. No `libmariadb-dev` build
+    # dependency, works on any dev machine. Aliased to `MySQLdb` via the shim
+    # in `config/__init__.py`. Slightly slower than `mysqlclient` (~5-10% on
+    # heavy queries) but the portability win is worth it for a starter
+    # template; swap to `mysqlclient>=2.2` when you outgrow the perf gap.
+    "pymysql>={{ bakery.versions.pymysql }}",
+{%- endif %}
+{%- if bakery.use_celery %}
+    # --- celery ---
+    "celery[redis]>={{ bakery.versions.celery }}",
+    "django-celery-beat>={{ bakery.versions['django-celery-beat'] }}",
+    "django-celery-results>={{ bakery.versions['django-celery-results'] }}",
+    "flower>={{ bakery.versions.flower }}",
+    {%- if bakery.celery_broker == 'redis' %}
+    "redis>=5.2",
+    {%- else %}
+    "kombu[librabbitmq]>=5.4",
+    {%- endif %}
+{%- endif %}
+{%- if bakery.api_layer == 'ninja' %}
+    # --- API: Django Ninja ---
+    "django-ninja>={{ bakery.versions['django-ninja'] }}",
+    "pydantic>={{ bakery.versions.pydantic }}",
+{%- elif bakery.api_layer == 'drf' %}
+    "djangorestframework>={{ bakery.versions.djangorestframework }}",
+    "drf-spectacular>={{ bakery.versions['drf-spectacular'] }}",
+    "django-filter>=24.3",
+{%- elif bakery.api_layer == 'graphql-strawberry' %}
+    # strawberry-graphql is the core library; -django adds Django integration
+    # (`strawberry_django` import + GraphQLView). Both are pinned explicitly so
+    # uv lock doesn't get confused by the extras-resolution path.
+    "strawberry-graphql>={{ bakery.versions['strawberry-graphql'] }}",
+    "strawberry-graphql-django>={{ bakery.versions['strawberry-graphql-django'] }}",
+{%- elif bakery.api_layer == 'graphql-graphene' %}
+    "graphene-django>={{ bakery.versions['graphene-django'] }}",
+{%- endif %}
+{%- if bakery.prod_email != 'console' and bakery.prod_email != 'smtp' %}
+    # --- email (transactional ESP) ---
+    # django-anymail bundles every supported backend behind extras_require.
+    # The matching ANYMAIL settings block in `config/settings/production.py`
+    # tells Django which provider's API key/secret to read.
+{%- if bakery.prod_email == 'anymail-mailgun' %}
+    "django-anymail[mailgun]>=11.1",
+{%- elif bakery.prod_email == 'anymail-ses' %}
+    "django-anymail[amazon-ses]>=11.1",
+{%- elif bakery.prod_email == 'anymail-sendgrid' %}
+    "django-anymail[sendgrid]>=11.1",
+{%- elif bakery.prod_email == 'anymail-mailjet' %}
+    "django-anymail[mailjet]>=11.1",
+{%- elif bakery.prod_email == 'anymail-mandrill' %}
+    "django-anymail[mandrill]>=11.1",
+{%- elif bakery.prod_email == 'anymail-postmark' %}
+    "django-anymail[postmark]>=11.1",
+{%- elif bakery.prod_email == 'anymail-brevo' %}
+    "django-anymail[brevo]>=11.1",
+{%- elif bakery.prod_email == 'anymail-sparkpost' %}
+    "django-anymail[sparkpost]>=11.1",
+{%- endif %}
+{%- endif %}
+{%- if bakery.storage == 'aws-s3' %}
+    # --- storage: AWS S3 ---
+    "django-storages[s3]>=1.14",
+    "boto3>=1.35",
+{%- elif bakery.storage == 'gcs' %}
+    "django-storages[google]>=1.14",
+{%- elif bakery.storage == 'azure-blob' %}
+    "django-storages[azure]>=1.14",
+{%- endif %}
+{%- if bakery.graph_db == 'neo4j' %}
+    "neomodel>=5.4",
+{%- elif bakery.graph_db == 'surreal' %}
+    "surrealdb>=1.0",
+{%- elif bakery.graph_db == 'nebula' %}
+    "nebula3-python>=3.8",
+{%- elif bakery.graph_db == 'dgraph' %}
+    "pydgraph>=24.3",
+{%- endif %}
+]
+
+[dependency-groups]
+dev = [
+    "pytest>={{ bakery.versions.pytest }}",
+    "pytest-django>={{ bakery.versions['pytest-django'] }}",
+    "pytest-cov>=6.0",
+    "pytest-xdist>=3.6",
+    "pytest-asyncio>=0.25",
+    "factory-boy>={{ bakery.versions['factory-boy'] }}",
+    "Faker>=33.1",
+    "model-bakery>=1.20",
+    "ruff>={{ bakery.versions.ruff }}",
+    "djlint>=1.36",
+    "django-debug-toolbar>=4.4",
+    "django-stubs[compatible-mypy]>=5.1",
+    "djangorestframework-stubs[compatible-mypy]>=3.15",
+    "coverage[toml]>=7.6",
+    "ipdb>=0.13",
+    "Werkzeug[watchdog]>=3.1",
+{%- if bakery.type_checker == 'mypy' %}
+    "mypy>=1.14",
+{%- elif bakery.type_checker == 'pyright' %}
+    "pyright>=1.1.392",
+{%- endif %}
+{%- if bakery.use_pre_commit %}
+    "pre-commit>=4.0",
+{%- endif %}
+    "watchfiles>=1.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py{{ bakery.python_version_short }}"
+extend-exclude = ["*/migrations/*", "static", "media"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W", "I", "B", "UP", "S", "N", "C90", "PT", "PL", "DJ", "RUF", "SIM", "TID",
+]
+ignore = [
+    "S101", # asserts ok in tests
+    "PLR0913", # too-many-args
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106", "PLR2004"]
+"**/tests/*" = ["S101", "S105", "S106", "PLR2004"]
+"**/settings/*" = ["S105"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.djlint]
+profile = "django"
+max_line_length = 120
+format_css = true
+format_js = true
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = [
+    "--reuse-db",
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:django.*",
+    "ignore::DeprecationWarning:allauth.*",
+]
+markers = [
+    "slow: marks a slow test",
+    "integration: hits an external service",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["apps", "config"]
+omit = ["*/migrations/*", "*/tests/*", "manage.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 90
+exclude_also = [
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+]
+
+{%- if bakery.type_checker == 'mypy' %}
+
+[tool.mypy]
+python_version = "{{ bakery.python_version }}"
+strict = true
+warn_unreachable = true
+plugins = ["mypy_django_plugin.main"{% if bakery.api_layer == 'drf' %}, "mypy_drf_plugin.main"{% endif %}]
+exclude = ["migrations/", "build/", "dist/"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings.local"
+{%- elif bakery.type_checker == 'pyright' %}
+
+[tool.pyright]
+include = ["apps", "config"]
+exclude = ["**/migrations", "**/node_modules", "**/__pycache__", ".venv"]
+pythonVersion = "{{ bakery.python_version }}"
+strict = ["apps", "config"]
+{%- endif %}
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

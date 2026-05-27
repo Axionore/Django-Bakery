@@ -143,8 +143,8 @@ django-bakery/
 ```
 
 - **Templates** live as a real directory tree under `crates/templates/files/`, embedded into the binary via `include_dir!`.
-- **Conditional inclusion** uses `__SKIP__` sentinels emitted by Jinja-in-filename — e.g., `{% if not cookiecutter.use_celery %}__SKIP__{% endif %}config/celery_app.py.j2`. Renders to `__SKIP__config/...` → skipped; or `config/...` → included. Works at the directory level too.
-- **Engine** is `minijinja` (Jinja2-compatible) — same `{{ }}` / `{% %}` syntax any Django developer already knows. The template-context namespace is `{{ cookiecutter.<field> }}` (recipe values) plus `{{ bakery.<field> }}` (computed extras like `bakery.versions.django`, `bakery.secret_key`); existing community Jinja templates port without changes.
+- **Conditional inclusion** uses `__SKIP__` sentinels emitted by Jinja-in-filename — e.g., `{% if not bakery.use_celery %}__SKIP__{% endif %}config/celery_app.py.j2`. Renders to `__SKIP__config/...` → skipped; or `config/...` → included. Works at the directory level too.
+- **Engine** is `minijinja` (Jinja2-compatible) — same `{{ }}` / `{% %}` syntax any Django developer already knows. The template-context namespace is a single flat `{{ bakery.<field> }}` — covering both your recipe answers (`bakery.project_slug`, `bakery.api_layer`, `bakery.multi_tenant`) and engine-computed extras (live-resolved pins via `bakery.versions['<pkg>']`, random secrets like `bakery.django_secret_key`, derived booleans like `bakery.is_postgres`).
 - **Speed** comes from: native binary, no Python startup, single-pass walker, `include_dir` virtual FS.
 
 ## Contributing
@@ -156,7 +156,7 @@ cargo clippy -- -D warnings
 cargo fmt
 ```
 
-Templates live in `crates/templates/files/{{cookiecutter.project_slug}}/`. Conditional files use the Jinja-prefix pattern above. Snapshot tests live in `tests/snapshot/`.
+Templates live in `crates/templates/files/{{bakery.project_slug}}/`. Conditional files use the Jinja-prefix pattern above. Snapshot tests live in `tests/snapshot/`.
 
 ## License
 

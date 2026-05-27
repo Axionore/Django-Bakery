@@ -1,8 +1,10 @@
 //! Builds the rendering context — a `minijinja::Value` — from a [`Recipe`].
 //!
-//! Templates address everything via `cookiecutter.*` for parity with cookiecutter-django
-//! (so existing community templates port without rewriting), plus a few `bakery.*`
-//! computed helpers we expose.
+//! Templates address everything via `bakery.*` — a single flat namespace that covers
+//! both the user's prompt answers (e.g. `bakery.project_slug`, `bakery.api_layer`,
+//! `bakery.multi_tenant`) and engine-computed extras (live-resolved version pins via
+//! `bakery.versions['<pkg>']`, random secrets like `bakery.django_secret_key`, derived
+//! booleans like `bakery.is_postgres`, `bakery.has_frontend_spa`).
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -14,7 +16,7 @@ use serde_json::{Map, json};
 
 use crate::recipe::Recipe;
 
-/// Computed context exposed to templates under `cookiecutter` and `bakery`.
+/// Computed context exposed to templates under a single `bakery` namespace.
 pub struct Context;
 
 impl Context {
@@ -26,8 +28,14 @@ impl Context {
 
     /// Build a context with a pre-resolved version map (the normal path during render).
     pub fn build_with_versions(recipe: &Recipe, versions: &crate::versions::VersionMap) -> Value {
-        let cookiecutter = Self::cookiecutter_block(recipe);
-        let mut bakery = Self::bakery_block(recipe);
+        // Merge recipe fields + engine extras into one flat `bakery` map. Recipe fields
+        // are inserted first so engine extras that happen to share a name (e.g. derived
+        // booleans like `is_postgres`) win deterministically — by convention the extras
+        // re-derive the boolean from the recipe field so the value is the same either way.
+        let mut bakery = Self::recipe_fields(recipe);
+        for (k, v) in Self::engine_extras(recipe) {
+            bakery.insert(k, v);
+        }
 
         let mut v_obj = serde_json::Map::new();
         for (k, val) in versions {
@@ -40,14 +48,12 @@ impl Context {
         }
         bakery.insert("versions".into(), serde_json::Value::Object(v_obj));
 
-        let root = json!({
-            "cookiecutter": cookiecutter,
-            "bakery": bakery,
-        });
+        let root = json!({ "bakery": bakery });
         Value::from_serialize(&root)
     }
 
-    fn cookiecutter_block(r: &Recipe) -> Map<String, serde_json::Value> {
+    /// The recipe's user-facing fields (prompt answers + derived booleans), flattened.
+    fn recipe_fields(r: &Recipe) -> Map<String, serde_json::Value> {
         let mut m = Map::new();
         // basics
         m.insert("project_name".into(), json!(r.project_name));
@@ -113,9 +119,9 @@ impl Context {
         m.insert("container_setup".into(), json!(r.container_setup.as_str()));
         m.insert("version_control".into(), json!(r.version_control.as_str()));
 
-        // Computed booleans — referenced as `cookiecutter.is_postgres` etc. throughout
-        // the templates. (Cookiecutter-django bakes derived fields into cookiecutter.json
-        // pre/post hooks; we do it eagerly here.)
+        // Computed booleans — referenced as `bakery.is_postgres` etc. throughout the
+        // templates. Eagerly derived here so templates don't have to encode the same
+        // matcher expression in multiple places.
         m.insert(
             "is_postgres".into(),
             json!(matches!(r.relational_db, crate::recipe::RelationalDb::Postgres)),
@@ -192,10 +198,13 @@ impl Context {
         m
     }
 
-    fn bakery_block(r: &Recipe) -> Map<String, serde_json::Value> {
+    /// Engine-side extras the templates can address under `bakery.*` —
+    /// random secrets, the current year, the bakery binary version. Booleans
+    /// re-derived from the recipe live in [`recipe_fields`]; we don't repeat
+    /// them here.
+    fn engine_extras(_r: &Recipe) -> Map<String, serde_json::Value> {
         let mut m = Map::new();
-        let year = current_year();
-        m.insert("year".into(), json!(year));
+        m.insert("year".into(), json!(current_year()));
         m.insert("django_secret_key".into(), json!(secret_key(50)));
         m.insert("postgres_password".into(), json!(secret_key(40)));
         m.insert("redis_password".into(), json!(secret_key(32)));
@@ -203,57 +212,7 @@ impl Context {
         // Non-secret but unguessable: admin URL suffix. Defends against `/admin/` scanners
         // and reduces the noise of automated brute-force on the auth endpoint.
         m.insert("admin_url_suffix".into(), json!(secret_key(16).to_lowercase()));
-        // Frontend dev-server config is exposed under `cookiecutter.*` for template
-        // ergonomics (see cookiecutter_block). The duplicate definition here keeps the
-        // `bakery.*` namespace consistent for callers that prefer it.
-        m.insert(
-            "bakery_version".into(),
-            json!(env!("CARGO_PKG_VERSION")),
-        );
-        // computed booleans templates love
-        m.insert(
-            "is_postgres".into(),
-            json!(matches!(r.relational_db, crate::recipe::RelationalDb::Postgres)),
-        );
-        m.insert(
-            "is_sqlite".into(),
-            json!(matches!(r.relational_db, crate::recipe::RelationalDb::Sqlite)),
-        );
-        m.insert(
-            "is_mysqlish".into(),
-            json!(matches!(
-                r.relational_db,
-                crate::recipe::RelationalDb::Mysql | crate::recipe::RelationalDb::Mariadb
-            )),
-        );
-        m.insert(
-            "has_api".into(),
-            json!(!matches!(r.api_layer, crate::recipe::ApiLayer::None)),
-        );
-        m.insert(
-            "has_frontend_spa".into(),
-            json!(matches!(
-                r.frontend,
-                crate::recipe::Frontend::React
-                    | crate::recipe::Frontend::Nuxt
-                    | crate::recipe::Frontend::Vue
-                    | crate::recipe::Frontend::Next
-            )),
-        );
-        m.insert(
-            "wants_docker".into(),
-            json!(!matches!(
-                r.container_setup,
-                crate::recipe::ContainerSetup::None
-            )),
-        );
-        m.insert(
-            "wants_traefik".into(),
-            json!(matches!(
-                r.container_setup,
-                crate::recipe::ContainerSetup::ComposeTraefik
-            )),
-        );
+        m.insert("bakery_version".into(), json!(env!("CARGO_PKG_VERSION")));
         m
     }
 }
@@ -276,9 +235,9 @@ mod tests {
     };
 
     #[test]
-    fn cookiecutter_block_exposes_computed_booleans() {
+    fn recipe_fields_exposes_computed_booleans() {
         let r = Recipe::defaults();
-        let block = Context::cookiecutter_block(&r);
+        let block = Context::recipe_fields(&r);
         assert_eq!(block.get("is_postgres"), Some(&serde_json::json!(true)));
         assert_eq!(block.get("is_sqlite"), Some(&serde_json::json!(false)));
         assert_eq!(block.get("has_api"), Some(&serde_json::json!(true)));
@@ -288,13 +247,13 @@ mod tests {
     }
 
     #[test]
-    fn cookiecutter_block_flips_booleans_on_minimal_recipe() {
+    fn recipe_fields_flips_booleans_on_minimal_recipe() {
         let mut r = Recipe::defaults();
         r.relational_db = RelationalDb::Sqlite;
         r.api_layer = ApiLayer::None;
         r.frontend = Frontend::None;
         r.container_setup = ContainerSetup::None;
-        let block = Context::cookiecutter_block(&r);
+        let block = Context::recipe_fields(&r);
         assert_eq!(block.get("is_postgres"), Some(&serde_json::json!(false)));
         assert_eq!(block.get("is_sqlite"), Some(&serde_json::json!(true)));
         assert_eq!(block.get("has_api"), Some(&serde_json::json!(false)));
@@ -303,9 +262,9 @@ mod tests {
     }
 
     #[test]
-    fn bakery_block_includes_secret_key_and_year() {
+    fn engine_extras_include_secret_key_and_year() {
         let r = Recipe::defaults();
-        let block = Context::bakery_block(&r);
+        let block = Context::engine_extras(&r);
         let key = block.get("django_secret_key").and_then(|v| v.as_str()).unwrap();
         assert_eq!(key.len(), 50);
         let pg = block.get("postgres_password").and_then(|v| v.as_str()).unwrap();
@@ -315,10 +274,10 @@ mod tests {
     }
 
     #[test]
-    fn cookiecutter_block_exposes_slug_variants() {
+    fn recipe_fields_exposes_slug_variants() {
         let mut r = Recipe::defaults();
         r.project_slug = "my_cool_app".into();
-        let block = Context::cookiecutter_block(&r);
+        let block = Context::recipe_fields(&r);
         assert_eq!(
             block.get("project_module").and_then(|v| v.as_str()),
             Some("my_cool_app")

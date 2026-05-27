@@ -87,7 +87,7 @@ pub fn render(recipe: &Recipe, options: &RenderOptions) -> Result<RenderReport> 
     let mut writer = RenderWriter::new(&env, &ctx, &target_root);
 
     // The embedded tree has exactly one top-level directory:
-    // `{{cookiecutter.project_slug}}/`. We don't want to emit *that* dir (it's the
+    // `{{bakery.project_slug}}/`. We don't want to emit *that* dir (it's the
     // generated project's root, already created as `target_root`); we walk its CHILDREN.
     for entry in template_root.entries() {
         if let DirEntry::Dir(d) = entry {

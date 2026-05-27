@@ -1,0 +1,11 @@
+{% raw %}{% extends "base.html" %}{% endraw %}
+
+{% raw %}{% block title %}About — {% endraw %}{{ bakery.project_name }}{% raw %}{% endblock %}{% endraw %}
+
+{% raw %}{% block content %}{% endraw %}
+<article class="prose prose-slate dark:prose-invert max-w-3xl">
+    <h1>About</h1>
+    <p>{{ bakery.description }}</p>
+    <p>Built with Django {{ bakery.django_version }}, Python {{ bakery.python_version }}.</p>
+</article>
+{% raw %}{% endblock %}{% endraw %}

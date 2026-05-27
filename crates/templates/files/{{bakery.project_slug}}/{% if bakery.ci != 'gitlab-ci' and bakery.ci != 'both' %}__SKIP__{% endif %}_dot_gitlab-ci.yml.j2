@@ -1,0 +1,61 @@
+stages:
+  - lint
+  - test
+  - build
+  - scan
+
+variables:
+  DJANGO_SETTINGS_MODULE: config.settings.test
+  DATABASE_URL: "{% if bakery.is_postgres %}postgres://postgres:postgres@postgres:5432/test{% else %}sqlite:///:memory:{% endif %}"
+  UV_CACHE_DIR: ".uv-cache"
+
+.python: &python
+  image: python:{{ bakery.python_version }}-slim-bookworm
+  before_script:
+    - pip install --no-cache-dir uv
+    - uv sync --frozen --all-extras --group dev
+  cache:
+    paths:
+      - .uv-cache/
+
+lint:
+  <<: *python
+  stage: lint
+  script:
+    - uv run ruff check .
+    - uv run djlint --check templates/
+
+typecheck:
+  <<: *python
+  stage: lint
+  script:
+{%- if bakery.type_checker == 'mypy' %}
+    - uv run mypy .
+{%- elif bakery.type_checker == 'pyright' %}
+    - uv run pyright
+{%- else %}
+    - echo "skipping type check"
+{%- endif %}
+
+test:
+  <<: *python
+  stage: test
+{%- if bakery.is_postgres %}
+  services:
+    - name: postgres:18-alpine
+      alias: postgres
+  variables:
+    POSTGRES_DB: test
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+{%- endif %}
+  script:
+    - uv run pytest -ra --cov=apps --cov=config
+
+container-scan:
+  stage: scan
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    - trivy fs --severity CRITICAL,HIGH --exit-code 1 --ignore-unfixed .

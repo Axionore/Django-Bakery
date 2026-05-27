@@ -1,0 +1,116 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { Box, Button, Container, DropdownMenu, Flex, IconButton, Text } from "@radix-ui/themes";
+import { MoonIcon, SunIcon, PersonIcon } from "@radix-ui/react-icons";
+
+import { useAuth, useLogout } from "~/lib/auth/store";
+import { useThemeAppearance } from "~/lib/ui/theme";
+
+const PROJECT_NAME = "{{ bakery.project_name }}";
+
+{% raw %}
+function navLinkStyle(active: boolean): React.CSSProperties {
+  return {
+    textDecoration: "none",
+    color: active ? "var(--accent-11)" : "var(--gray-12)",
+    fontWeight: active ? 600 : 400,
+    fontSize: 14,
+  };
+}
+
+export function Nav() {
+  const { user } = useAuth();
+  const { appearance, toggle } = useThemeAppearance();
+  const router = useRouter();
+  const pathname = usePathname();
+  const logout = useLogout();
+
+  return (
+    <Box asChild style={{ borderBottom: "1px solid var(--gray-a4)" }}>
+      <nav>
+        <Container size="3" px={{ initial: "4", sm: "6" }}>
+          <Flex align="center" justify="between" py="3">
+            <Flex align="center" gap="5">
+              <Text size="3" weight="bold" asChild>
+                <Link href="/" style={{ color: "inherit", textDecoration: "none" }}>
+                  {PROJECT_NAME}
+                </Link>
+              </Text>
+              <Flex gap="4" align="center" display={{ initial: "none", sm: "flex" }}>
+                <Link href="/" style={navLinkStyle(pathname === "/")}>
+                  Home
+                </Link>
+                <Link href="/about" style={navLinkStyle(pathname === "/about")}>
+                  About
+                </Link>
+{% endraw %}
+{%- if bakery.api_layer != 'none' %}
+{% raw %}
+                <a
+                  href="/api/docs"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ textDecoration: "none", color: "var(--gray-12)", fontSize: 14 }}
+                >
+                  API
+                </a>
+{% endraw %}
+{%- endif %}
+{% raw %}
+              </Flex>
+            </Flex>
+            <Flex align="center" gap="2">
+              <IconButton
+                variant="ghost"
+                aria-label={appearance === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+                onClick={toggle}
+              >
+                {appearance === "dark" ? <SunIcon /> : <MoonIcon />}
+              </IconButton>
+              {user ? (
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger>
+                    <Button variant="soft" size="2">
+                      <PersonIcon />
+                      {user.email}
+                    </Button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content>
+                    <DropdownMenu.Item onSelect={() => router.push("/account/profile")}>
+                      Profile
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item onSelect={() => router.push("/account/mfa-activate")}>
+                      MFA settings
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator />
+                    <DropdownMenu.Item
+                      color="red"
+                      onSelect={async () => {
+                        await logout();
+                        router.push("/");
+                      }}
+                    >
+                      Sign out
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              ) : (
+                <>
+                  <Button asChild variant="ghost" size="2">
+                    <Link href="/account/login">Sign in</Link>
+                  </Button>
+                  <Button asChild size="2">
+                    <Link href="/account/signup">Sign up</Link>
+                  </Button>
+                </>
+              )}
+            </Flex>
+          </Flex>
+        </Container>
+      </nav>
+    </Box>
+  );
+}
+{% endraw %}

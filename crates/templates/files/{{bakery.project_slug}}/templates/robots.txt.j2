@@ -1,0 +1,7 @@
+User-agent: *
+{%- if bakery.open_source %}
+Disallow:
+{%- else %}
+Disallow: /
+{%- endif %}
+Sitemap: https://{{ bakery.domain_name }}/sitemap.xml

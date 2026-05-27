@@ -211,7 +211,7 @@ A reviewer runs this list against a freshly generated project and verifies each.
 **React + Vite + Radix Themes path** — emitted when `frontend = "react"` and (depending on `radix_flavor`) either Themes or Primitives + Tailwind. Tree below is the Themes flavor; Primitives flavor swaps `@radix-ui/themes` for `@radix-ui/react-*` packages and adds Tailwind v4.
 
 ```
-{{cookiecutter.project_slug}}/
+{{bakery.project_slug}}/
 ├── pnpm-workspace.yaml           # NEW — packages: ["frontend"]
 ├── frontend/
 │   ├── package.json
@@ -274,7 +274,7 @@ A reviewer runs this list against a freshly generated project and verifies each.
 **Nuxt 4 path:**
 
 ```
-{{cookiecutter.project_slug}}/
+{{bakery.project_slug}}/
 ├── pnpm-workspace.yaml
 ├── frontend/
 │   ├── package.json
@@ -328,7 +328,7 @@ A reviewer runs this list against a freshly generated project and verifies each.
 
 ### Engine changes
 
-Templates use the existing `{% if cookiecutter.frontend == 'react' %}...{% else %}__SKIP__{% endif %}` and `{% if cookiecutter.frontend == 'nuxt' %}...{% else %}__SKIP__{% endif %}` prefix patterns. Add to context:
+Templates use the existing `{% if bakery.frontend == 'react' %}...{% else %}__SKIP__{% endif %}` and `{% if bakery.frontend == 'nuxt' %}...{% else %}__SKIP__{% endif %}` prefix patterns. Add to context:
 
 - `bakery.frontend_dev_port` — `5173` for React, `3000` for Nuxt
 - `bakery.frontend_origin` — `http://localhost:<port>`

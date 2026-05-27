@@ -1,0 +1,27 @@
+{
+  "name": "{{ bakery.project_slug | replace('_', '-') }}-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "engines": { "node": ">=24", "pnpm": ">=10" },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vue-tsc --build && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "dependencies": {
+    "vue": "^{{ bakery.versions.vue }}"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^{{ bakery.versions['@vitejs/plugin-vue'] }}",
+    "vite": "^{{ bakery.versions.vite }}",
+    "vue-tsc": "^3.0.0",
+    "typescript": "^{{ bakery.versions.typescript }}",
+    "eslint": "^{{ bakery.versions.eslint }}",
+    "eslint-plugin-vue": "^10.0.0",
+    "@vue/eslint-config-typescript": "^14.5.0"
+  }
+}

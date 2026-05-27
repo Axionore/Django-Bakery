@@ -1,0 +1,19 @@
+const NAME = "{{ bakery.project_name }}";
+const DESCRIPTION = "{{ bakery.description }}";
+
+{% raw %}
+export default function HomePage() {
+  return (
+    <main style={{ padding: "2rem", maxWidth: 640 }}>
+      <h1>{NAME}</h1>
+      <p>{DESCRIPTION}</p>
+      <p>
+        This is a <strong>skeleton</strong> Next.js 16 App Router scaffold. The Django
+        backend is reachable through Next's same-origin rewrites at <code>/api</code>
+        and <code>/_allauth</code>. See <code>frontend/README.md</code> for the security
+        baseline and the steps to add auth + UI.
+      </p>
+    </main>
+  );
+}
+{% endraw %}

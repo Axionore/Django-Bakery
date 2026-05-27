@@ -9,7 +9,7 @@ repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
 readme = "../../README.md"
-keywords = ["django", "cookiecutter", "scaffolding", "generator", "template"]
+keywords = ["django", "scaffolding", "generator", "template", "bakery"]
 categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]

@@ -1,0 +1,58 @@
+# {{ bakery.project_name }} — frontend (Vue 3 + Vite skeleton)
+
+> Minimal Vue 3.6 + Vite 8 + TypeScript 6. No router, no Pinia, no UI library — bring your own.
+>
+> What's wired for you: Vite proxy to Django, OWASP defaults, the Compose service, and the workspace.
+
+## Run it
+
+```bash
+pnpm install
+pnpm dev                          # vite on http://localhost:{{ bakery.frontend_dev_port }}
+docker compose -f compose.local.yml up   # OR the full stack
+```
+
+## What's in the box
+
+```
+frontend/
+├── package.json    # vue 3.6, vite 7, ts 6, eslint — nothing else
+├── tsconfig.json   # strict + noUncheckedIndexedAccess + exactOptionalPropertyTypes
+├── vite.config.ts  # /api + /_allauth + /static + /media proxies
+├── eslint.config.js
+├── env.d.ts
+├── index.html
+└── src/
+    ├── main.ts
+    └── App.vue     # Hello world
+```
+
+## OWASP Top 10 baseline (already on)
+
+- **A01** — backend authoritative; client checks are UX only
+- **A02** — session cookies (HttpOnly) — never JWT in localStorage
+- **A03** — Vue auto-escape; `vue/no-v-html` ESLint banned
+- **A05** — Vite proxies keep /api + /_allauth same-origin
+- **A06** — `pnpm audit --prod` in CI; pinned majors
+- **A08** — lockfile committed
+- **A09** — `sourcemap: false` in prod builds
+
+## Adding what you need
+
+```bash
+pnpm add vue-router pinia                        # routing + state
+pnpm add @vueuse/core                            # composable utilities
+pnpm add @nuxtjs/tailwindcss                     # (or your preferred CSS)
+pnpm add -D vitest @vue/test-utils jsdom         # testing
+pnpm add -D @playwright/test                     # E2E
+```
+
+For auth, the canonical pattern is a composable + Pinia store hitting `/_allauth/browser/v1/...`. Copy the Pinia auth store + route guards from the [django-bakery Nuxt Full template](https://github.com/Axionore/Django-Barkery) — the API surface is identical.
+
+## Calling the backend
+
+```ts
+const me = await fetch("/api/me", { credentials: "include" }).then((r) => r.json());
+```
+
+Backend auth model: **session cookies** (set by `/_allauth/browser/v1/auth/login`). For Ninja: [django_auth](https://django-ninja.dev/guides/authentication/). For DRF: [SessionAuthentication](https://www.django-rest-framework.org/api-guide/authentication/).

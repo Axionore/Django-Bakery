@@ -1,6 +1,6 @@
 //! Custom minijinja filters available inside templates.
 //!
-//! Mirrors the small set cookiecutter-django relies on, plus a few new conveniences.
+//! Slugify / case helpers plus engine-side conveniences (random secret_key etc.).
 
 use heck::{ToKebabCase, ToSnakeCase, ToUpperCamelCase};
 use minijinja::{Environment, Error, Value};
