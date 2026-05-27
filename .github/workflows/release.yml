@@ -205,7 +205,16 @@ jobs:
             end
 
             def install
-              bin.install "django-bakery-${GITHUB_REF_NAME}-#{Hardware::CPU.arch}-#{OS.kernel_name.downcase == "darwin" ? "apple-darwin" : "unknown-linux-musl"}" => "django-bakery"
+              # Hardware::CPU.arch returns :arm64 on Apple Silicon, but our
+              # tarballs use the Rust-target triple convention (aarch64).
+              # Build the correct triple explicitly instead of interpolating.
+              triple =
+                if OS.mac?
+                  Hardware::CPU.arm? ? "aarch64-apple-darwin" : "x86_64-apple-darwin"
+                else
+                  Hardware::CPU.arm? ? "aarch64-unknown-linux-musl" : "x86_64-unknown-linux-musl"
+                end
+              bin.install "django-bakery-${GITHUB_REF_NAME}-#{triple}" => "django-bakery"
             end
 
             test do
