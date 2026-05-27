@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import strawberry
+import strawberry_django
 from strawberry import auto
-from strawberry_django import auth
+from strawberry.types import Info
 
 from apps.users.models import User
 
@@ -20,7 +21,12 @@ class UserType:
 @strawberry.type
 class Query:
     @strawberry.field
-    def me(self, info) -> UserType | None:
+    def me(self, info: Info) -> UserType | None:
+        """Return the calling user, or null when anonymous.
+
+        Strawberry 0.316+ requires explicit annotations on resolver args —
+        `info: Info` is the standard type for the GraphQL execution context.
+        """
         user = info.context.request.user
         if user.is_anonymous:
             return None

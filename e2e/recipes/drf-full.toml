@@ -1,0 +1,36 @@
+# Server-rendered HTMX + Alpine + Tailwind. No SPA, no Node.
+project_name = "DRF Demo"
+project_slug = "drf_demo"
+description = "Django + DRF — REST API focus"
+author_name = "e2e"
+author_email = "e2e@example.com"
+domain_name = "drf.example.com"
+license = "mit"
+open_source = true
+
+python_version = "3.14"
+django_version = "6.0"
+mode = "development"
+relational_db = "sqlite"
+graph_db = "none"
+api_layer = "drf"
+frontend = "htmx-alpine"
+frontend_variant = "full"
+js_language = "typescript"
+js_testing = false
+css_framework = "tailwind"
+
+use_celery = false
+celery_broker = "redis"
+use_mailpit = false
+prod_email = "console"
+storage = "whitenoise"
+use_sentry = false
+use_observability = false
+use_feature_flags = false
+type_checker = "none"
+use_pre_commit = false
+ci = "none"
+container_setup = "none"
+version_control = "none"
+timezone = "UTC"
