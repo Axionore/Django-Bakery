@@ -3,24 +3,24 @@ import "~/assets/css/main.css";
 
 const auth = useAuthStore();
 const { user } = storeToRefs(auth);
-const route = useRoute();
 const router = useRouter();
-const colorMode = useColorMode();
 const projectName = useRuntimeConfig().public.appName;
 {% if cookiecutter.api_layer != 'none' %}
 const apiDocsHref = "/api/docs";
 {% endif %}
 
-const isActive = (path: string) =>
-  path === "/" ? route.path === "/" : route.path.startsWith(path);
-
+// Persisted theme — kept in a cookie so it survives SSR + reloads.
+// (No `useColorMode` here: the @vueuse/nuxt auto-imports are inconsistent
+// in SSR for v14, and we don't want a separate @nuxtjs/color-mode dep.)
+const theme = useCookie<"light" | "dark">("theme", { default: () => "light", sameSite: "lax" });
 async function logout() {
   await auth.logout();
   await router.push("/");
 }
 
 function toggleTheme() {
-  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
+  theme.value = theme.value === "dark" ? "light" : "dark";
+  if (import.meta.client) document.documentElement.classList.toggle("dark", theme.value === "dark");
 }
 </script>
 
@@ -31,8 +31,16 @@ function toggleTheme() {
         <div class="flex items-center gap-5">
           <NuxtLink to="/" class="text-base font-semibold tracking-tight no-underline">{{ '{{' }} projectName {{ '}}' }}</NuxtLink>
           <div class="hidden gap-4 text-sm sm:flex">
-            <NuxtLink to="/" :class="[isActive('/') ? 'font-semibold text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-300']">Home</NuxtLink>
-            <NuxtLink to="/about" :class="[isActive('/about') ? 'font-semibold text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-300']">About</NuxtLink>
+            <NuxtLink
+              to="/"
+              class="text-slate-600 dark:text-slate-300"
+              exact-active-class="!font-semibold !text-brand-700 dark:!text-brand-300"
+            >Home</NuxtLink>
+            <NuxtLink
+              to="/about"
+              class="text-slate-600 dark:text-slate-300"
+              active-class="!font-semibold !text-brand-700 dark:!text-brand-300"
+            >About</NuxtLink>
 {% if cookiecutter.api_layer != 'none' -%}
             <a :href="apiDocsHref" target="_blank" rel="noreferrer" class="text-slate-600 dark:text-slate-300">API</a>
 {%- endif %}
@@ -42,10 +50,10 @@ function toggleTheme() {
           <button
             type="button"
             class="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-            :aria-label="colorMode.value === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+            :aria-label="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
             @click="toggleTheme"
           >
-            {{ '{{' }} colorMode.value === "dark" ? "☀" : "☾" {{ '}}' }}
+            {{ '{{' }} theme === "dark" ? "☀" : "☾" {{ '}}' }}
           </button>
           <template v-if="user">
             <NuxtLink to="/account/profile" class="rounded-md px-3 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">

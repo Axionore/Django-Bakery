@@ -951,7 +951,7 @@ fn nuxt_full_recipe_emits_full_tree() {
         "frontend/app/middleware/auth.ts",
         "frontend/app/middleware/guest.ts",
         "frontend/app/types/allauth.d.ts",
-        "frontend/stores/auth.ts",
+        "frontend/app/stores/auth.ts",
         "frontend/server/.gitkeep",
         "frontend/tests/stores/auth.test.ts",
         "frontend/tests/e2e/login.spec.ts",
@@ -1002,7 +1002,7 @@ fn nuxt_full_auth_composable_carries_security_invariants() {
 #[test]
 fn nuxt_full_pinia_store_does_not_persist_to_localstorage() {
     let (_tmp, root) = render_recipe(&nuxt_full_recipe());
-    let body = read(&root, "frontend/stores/auth.ts");
+    let body = read(&root, "frontend/app/stores/auth.ts");
     // Reject ACTUAL persistence — calls or imports. Comments mentioning the
     // anti-pattern are fine (and present, deliberately).
     for forbidden in [

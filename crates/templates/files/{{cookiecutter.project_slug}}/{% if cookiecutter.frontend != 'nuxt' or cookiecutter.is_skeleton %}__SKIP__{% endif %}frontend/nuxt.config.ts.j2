@@ -1,4 +1,5 @@
 import { defineNuxtConfig } from "nuxt/config";
+import tailwindcss from "@tailwindcss/vite";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -10,11 +11,16 @@ export default defineNuxtConfig({
     "@nuxt/eslint",
     "@pinia/nuxt",
     "@vueuse/nuxt",
-    "@nuxtjs/tailwindcss",
 {%- if cookiecutter.use_sentry %}
     "@sentry/nuxt/module",
 {%- endif %}
   ],
+
+  // Tailwind v4 — uses the `@tailwindcss/vite` plugin instead of the legacy
+  // `@nuxtjs/tailwindcss` (Nuxt module), which is still pinned to Tailwind v3
+  // and breaks the build with "tailwindcss directly as PostCSS plugin".
+  css: ["~/assets/css/main.css"],
+  vite: { plugins: [tailwindcss()] },
 
   typescript: { strict: true, typeCheck: false },
   devServer: { port: {{ cookiecutter.frontend_dev_port }}, host: "0.0.0.0" },
