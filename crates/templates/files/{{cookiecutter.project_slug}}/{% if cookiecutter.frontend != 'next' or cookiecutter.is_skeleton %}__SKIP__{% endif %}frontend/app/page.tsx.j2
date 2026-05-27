@@ -1,0 +1,50 @@
+import Link from "next/link";
+import { Box, Button, Container, Flex, Heading, Text } from "@radix-ui/themes";
+import { ArrowRightIcon{% if cookiecutter.api_layer != 'none' %}, RocketIcon{% endif %} } from "@radix-ui/react-icons";
+
+import { currentUser } from "~/lib/auth/server";
+
+const NAME = "{{ cookiecutter.project_name }}";
+const DESCRIPTION = "{{ cookiecutter.description }}";
+
+{% raw %}
+export default async function HomePage() {
+  // Server Component — runs on the server, has access to the user via cookies.
+  const user = await currentUser();
+  return (
+    <Container size="3">
+      <Flex direction="column" gap="6" py="6">
+        <Box>
+          <Heading size="9" mb="3">
+            {NAME}
+          </Heading>
+          <Text as="p" size="4" color="gray" style={{ maxWidth: 640 }}>
+            {DESCRIPTION}
+          </Text>
+        </Box>
+        <Flex gap="3" wrap="wrap">
+          <Button asChild size="3">
+            <Link href={user ? "/account/profile" : "/account/login"}>
+              {user ? "Your profile" : "Sign in"} <ArrowRightIcon />
+            </Link>
+          </Button>
+{% endraw %}
+{%- if cookiecutter.api_layer != 'none' %}
+{% raw %}
+          <Button asChild variant="soft" size="3">
+            <a href="/api/docs" target="_blank" rel="noreferrer">
+              <RocketIcon /> API docs
+            </a>
+          </Button>
+{% endraw %}
+{%- endif %}
+{% raw %}
+          <Button asChild variant="ghost" size="3">
+            <Link href="/about">Learn more</Link>
+          </Button>
+        </Flex>
+      </Flex>
+    </Container>
+  );
+}
+{% endraw %}

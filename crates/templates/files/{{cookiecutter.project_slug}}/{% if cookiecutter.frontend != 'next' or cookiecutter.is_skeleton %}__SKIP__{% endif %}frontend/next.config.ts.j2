@@ -1,0 +1,56 @@
+import type { NextConfig } from "next";
+
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+
+/**
+ * Same-origin rewrites send /api + /_allauth + /static + /media to Django from
+ * the browser's point of view, so the session cookie + CSRF token stay
+ * first-party (OWASP A05 — no wildcard CORS).
+ *
+ * Strict security headers ship by default (OWASP A05):
+ *   - X-Frame-Options: DENY                 (clickjacking)
+ *   - X-Content-Type-Options: nosniff        (MIME confusion)
+ *   - Referrer-Policy: same-origin           (referrer leak)
+ *   - Permissions-Policy: …                  (denies camera/mic/geo/payment)
+ *   - Strict-Transport-Security: 1y + preload (only in prod via Django side)
+ */
+
+const config: NextConfig = {
+  reactStrictMode: true,
+  // OWASP A09 — never ship browser source maps to prod.
+  productionBrowserSourceMaps: false,
+  // Trace memory inside the dev container.
+  output: "standalone",
+  experimental: {
+    typedRoutes: true,
+  },
+
+  async rewrites() {
+    return [
+      { source: "/api/:path*", destination: `${BACKEND}/api/:path*` },
+      { source: "/_allauth/:path*", destination: `${BACKEND}/_allauth/:path*` },
+      { source: "/static/:path*", destination: `${BACKEND}/static/:path*` },
+      { source: "/media/:path*", destination: `${BACKEND}/media/:path*` },
+    ];
+  },
+
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "same-origin" },
+          {
+            key: "Permissions-Policy",
+            value:
+              "accelerometer=(), camera=(), microphone=(), geolocation=(), payment=(), usb=(), midi=()",
+          },
+        ],
+      },
+    ];
+  },
+};
+
+export default config;

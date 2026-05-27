@@ -1,0 +1,29 @@
+node_modules/
+.next/
+out/
+build/
+
+# Tests / coverage
+coverage/
+playwright-report/
+test-results/
+.nyc_output/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated
+*.tsbuildinfo
+next-env.d.ts.bak

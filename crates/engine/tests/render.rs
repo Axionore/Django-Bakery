@@ -611,6 +611,173 @@ fn vue_full_recipe() -> Recipe {
     r
 }
 
+fn next_full_recipe() -> Recipe {
+    let mut r = Recipe::defaults();
+    r.project_slug = "next_app".into();
+    r.frontend = Frontend::Next;
+    r.frontend_variant = django_bakery_engine::FrontendVariant::Full;
+    r.radix_flavor = None;
+    r.js_language = django_bakery_engine::JsLanguage::Typescript;
+    r.js_testing = true;
+    r
+}
+
+#[test]
+fn next_full_recipe_emits_full_tree() {
+    let (_tmp, root) = render_recipe(&next_full_recipe());
+    assert_present(&root, "pnpm-workspace.yaml");
+    for f in [
+        "frontend/package.json",
+        "frontend/tsconfig.json",
+        "frontend/next.config.ts",
+        "frontend/next-env.d.ts",
+        "frontend/eslint.config.js",
+        "frontend/.prettierrc",
+        "frontend/.gitignore",
+        "frontend/.env.example",
+        "frontend/README.md",
+        "frontend/playwright.config.ts",
+        "frontend/vitest.config.ts",
+        "frontend/styles/globals.css",
+        "frontend/app/layout.tsx",
+        "frontend/app/providers.tsx",
+        "frontend/app/not-found.tsx",
+        "frontend/app/page.tsx",
+        "frontend/app/about/page.tsx",
+        "frontend/app/account/layout.tsx",
+        "frontend/app/account/login/page.tsx",
+        "frontend/app/account/signup/page.tsx",
+        "frontend/app/account/profile/page.tsx",
+        "frontend/app/account/verify-email/page.tsx",
+        "frontend/app/account/mfa-challenge/page.tsx",
+        "frontend/app/account/mfa-activate/page.tsx",
+        "frontend/app/account/recovery-codes/page.tsx",
+        "frontend/lib/auth/client.ts",
+        "frontend/lib/auth/server.ts",
+        "frontend/lib/auth/csrf.ts",
+        "frontend/lib/auth/store.ts",
+        "frontend/lib/auth/types.ts",
+        "frontend/lib/auth/tests/client.test.ts",
+        "frontend/lib/api/client.ts",
+        "frontend/lib/ui/nav.tsx",
+        "frontend/lib/ui/theme.tsx",
+        "frontend/tests/setup.ts",
+        "frontend/tests/e2e/login.spec.ts",
+    ] {
+        assert_present(&root, f);
+    }
+}
+
+#[test]
+fn next_full_recipe_carries_no_skip_markers() {
+    let (_tmp, root) = render_recipe(&next_full_recipe());
+    let mut offenders = Vec::new();
+    for entry in walkdir::WalkDir::new(root.join("frontend")) {
+        let entry = entry.expect("walk");
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let body = std::fs::read_to_string(entry.path()).unwrap_or_default();
+        if body.contains("__SKIP__") {
+            offenders.push(entry.path().display().to_string());
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "Next full files contain __SKIP__:\n  - {}",
+        offenders.join("\n  - ")
+    );
+}
+
+#[test]
+fn next_full_server_auth_is_marked_server_only() {
+    let (_tmp, root) = render_recipe(&next_full_recipe());
+    let body = read(&root, "frontend/lib/auth/server.ts");
+    assert!(
+        body.contains("\"server-only\"") || body.contains("'server-only'"),
+        "lib/auth/server.ts must import 'server-only' so the cookie-reading code never bundles to the browser"
+    );
+    assert!(
+        body.contains("cookies()") || body.contains("from \"next/headers\""),
+        "server.ts must use next/headers cookies() to read the session"
+    );
+    assert!(
+        body.contains("cache: \"no-store\""),
+        "server.ts auth fetch must opt out of the Next data cache (per-request user data)"
+    );
+}
+
+#[test]
+fn next_full_auth_client_carries_security_invariants() {
+    let (_tmp, root) = render_recipe(&next_full_recipe());
+    let body = read(&root, "frontend/lib/auth/client.ts");
+    assert!(body.contains("credentials: \"include\""));
+    assert!(body.contains("X-CSRFToken"));
+    assert!(body.contains("mfa_required"));
+    assert!(body.contains("email_verification_required"));
+    for forbidden in [
+        "localStorage.setItem",
+        "localStorage.getItem",
+        "sessionStorage.setItem",
+        "sessionStorage.getItem",
+    ] {
+        assert!(!body.contains(forbidden), "Next auth client must not call {forbidden}");
+    }
+}
+
+#[test]
+fn next_full_zustand_store_does_not_persist_to_localstorage() {
+    let (_tmp, root) = render_recipe(&next_full_recipe());
+    let body = read(&root, "frontend/lib/auth/store.ts");
+    for forbidden in [
+        "localStorage.setItem",
+        "localStorage.getItem",
+        "sessionStorage.setItem",
+        "sessionStorage.getItem",
+        "zustand/middleware/persist",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "Next auth store must NOT persist via {forbidden} (session cookies only)"
+        );
+    }
+}
+
+#[test]
+fn next_full_profile_page_is_server_component_with_redirect_guard() {
+    let (_tmp, root) = render_recipe(&next_full_recipe());
+    let body = read(&root, "frontend/app/account/profile/page.tsx");
+    assert!(
+        !body.contains("\"use client\""),
+        "profile page must remain a Server Component (server-side redirect gate)"
+    );
+    assert!(
+        body.contains("redirect(\"/account/login"),
+        "profile page must redirect unauthenticated users server-side"
+    );
+    assert!(body.contains("currentUser()"), "profile page must read currentUser() from server.ts");
+}
+
+#[test]
+fn next_full_next_config_ships_security_headers() {
+    let (_tmp, root) = render_recipe(&next_full_recipe());
+    let body = read(&root, "frontend/next.config.ts");
+    assert!(body.contains("X-Frame-Options"));
+    assert!(body.contains("DENY"));
+    assert!(body.contains("Permissions-Policy"));
+    assert!(body.contains("camera=()"));
+    assert!(body.contains("productionBrowserSourceMaps: false"));
+    assert!(body.contains("/api/:path*"));
+    assert!(body.contains("/_allauth/:path*"));
+}
+
+#[test]
+fn next_full_eslint_bans_raw_html() {
+    let (_tmp, root) = render_recipe(&next_full_recipe());
+    let body = read(&root, "frontend/eslint.config.js");
+    assert!(body.contains("react/no-danger"), "ESLint must ban the raw-HTML React API (OWASP A03)");
+}
+
 #[test]
 fn vue_full_recipe_emits_full_tree() {
     let (_tmp, root) = render_recipe(&vue_full_recipe());

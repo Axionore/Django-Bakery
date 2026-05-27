@@ -1,0 +1,18 @@
+# =============================================================================
+# {{ cookiecutter.project_name }} — frontend (Next.js 16) environment
+# Copy to `.env.local` (gitignored). NEVER commit the real `.env*`.
+# =============================================================================
+
+# Backend that Next.js rewrites + Server Component fetches target.
+# Used by both the browser (via the same-origin rewrite path) and SSR
+# fetches that need to forward the session cookie to Django.
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+
+# Public app config — anything VITE_* / NEXT_PUBLIC_* is bundle-inlined.
+# Never put secrets here.
+NEXT_PUBLIC_APP_NAME={{ cookiecutter.project_name }}
+
+{% if cookiecutter.use_sentry -%}
+# Sentry browser DSN — opt-in. Leave blank to disable client-side error reporting.
+NEXT_PUBLIC_SENTRY_DSN=
+{%- endif %}
