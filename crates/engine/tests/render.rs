@@ -318,6 +318,61 @@ fn ninja_api_enforces_staff_only_user_listing() {
 }
 
 #[test]
+fn graphene_recipe_ships_schema_and_wires_graphene_setting() {
+    // graphene-django's GraphQLView asserts on init unless it can locate a
+    // graphene.Schema either via the `schema=` kwarg or the GRAPHENE.SCHEMA
+    // setting. The earlier template shipped neither and crashed every request.
+    let mut r = Recipe::defaults();
+    r.api_layer = ApiLayer::GraphqlGraphene;
+    let (_tmp, root) = render_recipe(&r);
+
+    // Schema file must exist and define a graphene Schema with a Query type.
+    let schema = read(&root, "apps/api/schema.py");
+    assert!(
+        schema.contains("schema = graphene.Schema(query=Query)"),
+        "apps/api/schema.py must define `schema = graphene.Schema(query=Query)`"
+    );
+    assert!(
+        schema.contains("class Query"),
+        "schema.py must declare a Query type for graphene to mount"
+    );
+
+    // Settings must point graphene at the schema module.
+    let settings = read(&root, "config/settings/base.py");
+    assert!(
+        settings.contains("\"SCHEMA\": \"apps.api.schema.schema\""),
+        "GRAPHENE setting must wire SCHEMA = 'apps.api.schema.schema' — without it \
+         GraphQLView asserts on init"
+    );
+
+    // And NEITHER of these must be shipped to the Strawberry recipe — different schema.
+    let mut r = Recipe::defaults();
+    r.api_layer = ApiLayer::GraphqlStrawberry;
+    let (_tmp, root) = render_recipe(&r);
+    let settings = read(&root, "config/settings/base.py");
+    assert!(
+        !settings.contains("apps.api.schema.schema"),
+        "Strawberry recipe must not include the graphene GRAPHENE setting"
+    );
+}
+
+#[test]
+fn drf_spectacular_emits_openapi_3_1() {
+    // The README + CHANGELOG advertise "OpenAPI 3.1 docs wired for DRF".
+    // drf-spectacular defaults to 3.0.3 unless OAS_VERSION is set explicitly;
+    // pin SPECTACULAR_SETTINGS so the served schema matches the brand promise.
+    // (e2e drf-full hits /api/schema/ and confirms the rendered header.)
+    let mut r = Recipe::defaults();
+    r.api_layer = ApiLayer::Drf;
+    let (_tmp, root) = render_recipe(&r);
+    let body = read(&root, "config/settings/base.py");
+    assert!(
+        body.contains("\"OAS_VERSION\": \"3.1.0\""),
+        "SPECTACULAR_SETTINGS must pin OAS_VERSION = 3.1.0 — drf-spectacular defaults to 3.0.3"
+    );
+}
+
+#[test]
 fn drf_user_viewset_is_admin_only() {
     let mut r = Recipe::defaults();
     r.api_layer = ApiLayer::Drf;

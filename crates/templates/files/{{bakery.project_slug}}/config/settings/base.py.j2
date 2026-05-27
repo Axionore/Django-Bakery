@@ -492,6 +492,25 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "{{ bakery.description }}",
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Emit OpenAPI 3.1.0 (JSON Schema 2020-12 alignment) rather than the
+    # spectacular default of 3.0.3. Modern toolchains — openapi-typescript,
+    # Postman 11+, Stoplight, Redocly — fully consume 3.1; legacy 3.0-only
+    # readers can still parse most of the document. Available since
+    # drf-spectacular 0.27.
+    "OAS_VERSION": "3.1.0",
+}
+{%- endif %}
+
+{%- if bakery.api_layer == 'graphql-graphene' %}
+
+# graphene-django reads the schema module from this setting. Without it,
+# GraphQLView falls back to no-schema and asserts at request time
+# (`AssertionError: A Schema is required to be provided to GraphQLView.`).
+# Lock down introspection in production: flip MIDDLEWARE_CLASSES or set
+# INTROSPECTION=False once the schema is stable enough that external API
+# consumers don't need to discover it at runtime.
+GRAPHENE = {
+    "SCHEMA": "apps.api.schema.schema",
 }
 {%- endif %}
 
