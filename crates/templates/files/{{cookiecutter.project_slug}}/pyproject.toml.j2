@@ -16,58 +16,60 @@ classifiers = [
 
 dependencies = [
     # --- core ---
+    # Version floors below come from `bakery.versions.*` — see crates/engine/src/versions.rs.
+    # Refresh by running `django-bakery new` in `--online` mode (the default).
     "Django>={{ cookiecutter.django_version }},<7.0",
-    "django-environ>=0.12",
-    "django-allauth[mfa,socialaccount]>=65.4",
-    "django-csp>=4.0",
-    "django-cors-headers>=4.6",
-    "django-ratelimit>=4.1",
+    "django-environ>={{ bakery.versions['django-environ'] }}",
+    "django-allauth[mfa,socialaccount]>={{ bakery.versions['django-allauth'] }}",
+    "django-csp>={{ bakery.versions['django-csp'] }}",
+    "django-cors-headers>={{ bakery.versions['django-cors-headers'] }}",
+    "django-ratelimit>={{ bakery.versions['django-ratelimit'] }}",
     # Pwned-passwords validator hits HIBP's k-anonymity API on signup/password-change.
     # No password ever leaves the server; only the SHA-1 prefix (first 5 chars) is sent.
     "pwned-passwords-django>=2.1",
     # Always-on structured JSON logging (even without full OpenTelemetry stack).
     "python-json-logger>=3.2",
-    "django-extensions>=4.0",
-    "argon2-cffi>=23.1",
+    "django-extensions>={{ bakery.versions['django-extensions'] }}",
+    "argon2-cffi>={{ bakery.versions['argon2-cffi'] }}",
     "Pillow>=11.1",
-    "whitenoise[brotli]>=6.8",
+    "whitenoise[brotli]>={{ bakery.versions.whitenoise }}",
     # --- runtime ---
-    "gunicorn>=23.0",
-    "uvicorn[standard]>=0.35",
+    "gunicorn>={{ bakery.versions.gunicorn }}",
+    "uvicorn[standard]>={{ bakery.versions.uvicorn }}",
     "asgiref>=3.8",
     # --- structured logging ---
 {%- if cookiecutter.use_observability %}
-    "structlog>=25.1",
-    "django-structlog>=9.0",
+    "structlog>={{ bakery.versions.structlog }}",
+    "django-structlog>={{ bakery.versions['django-structlog'] }}",
     "opentelemetry-api>=1.30",
-    "opentelemetry-sdk>=1.30",
+    "opentelemetry-sdk>={{ bakery.versions['opentelemetry-sdk'] }}",
     "opentelemetry-instrumentation-django>=0.51b0",
     "opentelemetry-instrumentation-psycopg>=0.51b0",
     "opentelemetry-exporter-otlp>=1.30",
 {%- endif %}
 {%- if cookiecutter.use_sentry %}
-    "sentry-sdk[django]>=2.20",
+    "sentry-sdk[django]>={{ bakery.versions['sentry-sdk'] }}",
 {%- endif %}
 {%- if cookiecutter.use_feature_flags %}
     "django-waffle>=4.2",
 {%- endif %}
 {%- if cookiecutter.is_postgres %}
     # --- database (PostgreSQL) ---
-    "psycopg[binary,pool]>=3.2",
+    "psycopg[binary,pool]>={{ bakery.versions.psycopg }}",
 {%- elif cookiecutter.is_mysqlish %}
     # PyMySQL — pure-Python MySQL/MariaDB driver. No `libmariadb-dev` build
     # dependency, works on any dev machine. Aliased to `MySQLdb` via the shim
     # in `config/__init__.py`. Slightly slower than `mysqlclient` (~5-10% on
     # heavy queries) but the portability win is worth it for a starter
     # template; swap to `mysqlclient>=2.2` when you outgrow the perf gap.
-    "pymysql>=1.1",
+    "pymysql>={{ bakery.versions.pymysql }}",
 {%- endif %}
 {%- if cookiecutter.use_celery %}
     # --- celery ---
-    "celery[redis]>=5.5",
-    "django-celery-beat>=2.7",
-    "django-celery-results>=2.6",
-    "flower>=2.0",
+    "celery[redis]>={{ bakery.versions.celery }}",
+    "django-celery-beat>={{ bakery.versions['django-celery-beat'] }}",
+    "django-celery-results>={{ bakery.versions['django-celery-results'] }}",
+    "flower>={{ bakery.versions.flower }}",
     {%- if cookiecutter.celery_broker == 'redis' %}
     "redis>=5.2",
     {%- else %}
@@ -76,20 +78,20 @@ dependencies = [
 {%- endif %}
 {%- if cookiecutter.api_layer == 'ninja' %}
     # --- API: Django Ninja ---
-    "django-ninja>=1.4",
-    "pydantic>=2.10",
+    "django-ninja>={{ bakery.versions['django-ninja'] }}",
+    "pydantic>={{ bakery.versions.pydantic }}",
 {%- elif cookiecutter.api_layer == 'drf' %}
-    "djangorestframework>=3.16",
-    "drf-spectacular>=0.28",
+    "djangorestframework>={{ bakery.versions.djangorestframework }}",
+    "drf-spectacular>={{ bakery.versions['drf-spectacular'] }}",
     "django-filter>=24.3",
 {%- elif cookiecutter.api_layer == 'graphql-strawberry' %}
     # strawberry-graphql is the core library; -django adds Django integration
     # (`strawberry_django` import + GraphQLView). Both are pinned explicitly so
     # uv lock doesn't get confused by the extras-resolution path.
-    "strawberry-graphql>=0.316",
-    "strawberry-graphql-django>=0.86",
+    "strawberry-graphql>={{ bakery.versions['strawberry-graphql'] }}",
+    "strawberry-graphql-django>={{ bakery.versions['strawberry-graphql-django'] }}",
 {%- elif cookiecutter.api_layer == 'graphql-graphene' %}
-    "graphene-django>=3.2",
+    "graphene-django>={{ bakery.versions['graphene-django'] }}",
 {%- endif %}
 {%- if cookiecutter.prod_email != 'console' and cookiecutter.prod_email != 'smtp' %}
     # --- email ---
@@ -117,15 +119,15 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3",
-    "pytest-django>=4.9",
+    "pytest>={{ bakery.versions.pytest }}",
+    "pytest-django>={{ bakery.versions['pytest-django'] }}",
     "pytest-cov>=6.0",
     "pytest-xdist>=3.6",
     "pytest-asyncio>=0.25",
-    "factory-boy>=3.3",
+    "factory-boy>={{ bakery.versions['factory-boy'] }}",
     "Faker>=33.1",
     "model-bakery>=1.20",
-    "ruff>=0.9",
+    "ruff>={{ bakery.versions.ruff }}",
     "djlint>=1.36",
     "django-debug-toolbar>=4.4",
     "django-stubs[compatible-mypy]>=5.1",
