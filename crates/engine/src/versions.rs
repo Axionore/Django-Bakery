@@ -107,7 +107,9 @@ fn relevant_packages(r: &Recipe) -> Wanted {
         crate::recipe::ApiLayer::Drf => {
             pypi.extend(["djangorestframework", "drf-spectacular"]);
         }
-        crate::recipe::ApiLayer::GraphqlStrawberry => pypi.push("strawberry-graphql"),
+        crate::recipe::ApiLayer::GraphqlStrawberry => {
+            pypi.extend(["strawberry-graphql", "strawberry-graphql-django"]);
+        }
         crate::recipe::ApiLayer::GraphqlGraphene => pypi.push("graphene-django"),
         crate::recipe::ApiLayer::None => {}
     }
@@ -190,11 +192,42 @@ fn latest_npm(agent: &ureq::Agent, pkg: &str) -> Result<String, String> {
 }
 
 fn is_prerelease(version: &str) -> bool {
-    // PEP 440 prerelease markers
+    // PEP 440 prerelease segment is shaped `<N>[.<sep>?]<marker>[<N>]`, e.g.
+    // `1.0a1`, `2.5b2`, `3.1rc1`, `4.0.dev0`. A naive `contains("a")` matches
+    // any version string with the letter 'a' in it — e.g. `1.0.0+abi3` (local
+    // version with an ABI tag) or `1.0.0.post1+ubuntu.alpha` — and quietly
+    // rejects legitimate stable releases. Anchor each marker to a preceding
+    // digit + (digit | end | '.') to match PEP 440's actual shape.
     let v = version.to_ascii_lowercase();
-    v.contains("a") || v.contains("b") || v.contains("rc") || v.contains("dev") || v.contains("pre")
-        // SemVer prerelease
-        || v.contains('-')
+    let bytes = v.as_bytes();
+    for marker in ["a", "b", "c", "rc", "alpha", "beta", "dev", "pre"] {
+        let mut start = 0;
+        while let Some(rel) = v[start..].find(marker) {
+            let pos = start + rel;
+            let prev = pos.checked_sub(1).and_then(|i| bytes.get(i)).copied();
+            let after = pos + marker.len();
+            let next = bytes.get(after).copied();
+            let prev_is_digit = matches!(prev, Some(c) if c.is_ascii_digit());
+            let next_ok = next.is_none()
+                || matches!(next, Some(c) if c.is_ascii_digit() || c == b'.');
+            if prev_is_digit && next_ok {
+                return true;
+            }
+            start = pos + marker.len();
+        }
+    }
+    // SemVer prerelease: `1.0.0-rc.1`, `1.0.0-alpha.2`. Require a `<digit>-<alnum>`
+    // shape so we don't false-positive on stray hyphens (e.g. package names).
+    if let Some(hyphen) = v.find('-') {
+        let before = hyphen.checked_sub(1).and_then(|i| bytes.get(i)).copied();
+        let after = bytes.get(hyphen + 1).copied();
+        if matches!(before, Some(c) if c.is_ascii_digit())
+            && matches!(after, Some(c) if c.is_ascii_alphanumeric())
+        {
+            return true;
+        }
+    }
+    false
 }
 
 /// Compatibility checks — known incompatible combinations.
@@ -312,21 +345,83 @@ mod tests {
     fn defaults_cover_every_package_requested_by_relevant_packages() {
         // Whatever `relevant_packages()` asks the resolver to fetch must
         // have a matching default — otherwise an offline run renders a
-        // hole into the template.
-        let r = Recipe::defaults();
-        let wanted = relevant_packages(&r);
+        // hole into the template. The previous version of this test only
+        // exercised `Recipe::defaults()` (which is htmx-alpine + no celery
+        // + ninja + no multi-tenant), so every branch of `relevant_packages`
+        // that lit up only for OTHER toggles (multi_tenant, GraphqlStrawberry,
+        // Nuxt, Vue, etc.) was tested vacuously and could lose its default
+        // entry without breaking the suite. Walk a small matrix that turns
+        // each toggle on at least once.
+        use crate::recipe::{
+            ApiLayer, CssFramework, Frontend, FrontendVariant, RadixFlavor, RelationalDb,
+        };
         let d = defaults();
-        for pkg in wanted.pypi {
-            assert!(
-                d.contains_key(&format!("py.{pkg}")),
-                "defaults missing py.{pkg}"
-            );
+        let assert_covered = |r: &Recipe, label: &str| {
+            let wanted = relevant_packages(r);
+            for pkg in wanted.pypi {
+                assert!(
+                    d.contains_key(&format!("py.{pkg}")),
+                    "defaults missing py.{pkg} (matrix variant: {label})"
+                );
+            }
+            for pkg in wanted.npm {
+                assert!(
+                    d.contains_key(&format!("npm.{pkg}")),
+                    "defaults missing npm.{pkg} (matrix variant: {label})"
+                );
+            }
+        };
+        assert_covered(&Recipe::defaults(), "defaults");
+        for api in [
+            ApiLayer::Ninja,
+            ApiLayer::Drf,
+            ApiLayer::GraphqlStrawberry,
+            ApiLayer::GraphqlGraphene,
+            ApiLayer::None,
+        ] {
+            let mut r = Recipe::defaults();
+            r.api_layer = api;
+            assert_covered(&r, &format!("api_layer={}", api.as_str()));
         }
-        for pkg in wanted.npm {
-            assert!(
-                d.contains_key(&format!("npm.{pkg}")),
-                "defaults missing npm.{pkg}"
-            );
+        for (frontend, radix) in [
+            (Frontend::HtmxAlpine, None),
+            (Frontend::React, Some(RadixFlavor::Themes)),
+            (Frontend::React, Some(RadixFlavor::Primitives)),
+            (Frontend::Nuxt, None),
+            (Frontend::Vue, None),
+            (Frontend::Next, None),
+        ] {
+            let mut r = Recipe::defaults();
+            r.frontend = frontend;
+            r.frontend_variant = FrontendVariant::Full;
+            r.radix_flavor = radix;
+            assert_covered(&r, &format!("frontend={}", frontend.as_str()));
+        }
+        for css in [CssFramework::Tailwind, CssFramework::Bootstrap, CssFramework::None] {
+            let mut r = Recipe::defaults();
+            r.css_framework = css;
+            assert_covered(&r, &format!("css={}", css.as_str()));
+        }
+        {
+            let mut r = Recipe::defaults();
+            r.multi_tenant = true;
+            r.relational_db = RelationalDb::Postgres;
+            assert_covered(&r, "multi_tenant=true");
+        }
+        {
+            let mut r = Recipe::defaults();
+            r.use_celery = true;
+            assert_covered(&r, "use_celery=true");
+        }
+        {
+            let mut r = Recipe::defaults();
+            r.use_observability = true;
+            assert_covered(&r, "use_observability=true");
+        }
+        {
+            let mut r = Recipe::defaults();
+            r.use_sentry = true;
+            assert_covered(&r, "use_sentry=true");
         }
     }
 }
