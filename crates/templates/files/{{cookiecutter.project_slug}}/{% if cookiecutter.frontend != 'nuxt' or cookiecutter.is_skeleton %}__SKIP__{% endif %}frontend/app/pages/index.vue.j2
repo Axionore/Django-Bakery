@@ -1,0 +1,44 @@
+<script setup lang="ts">
+const projectName = useRuntimeConfig().public.appName;
+const description = "{{ cookiecutter.description }}";
+const auth = useAuthStore();
+const { user } = storeToRefs(auth);
+
+useSeoMeta({
+  title: () => projectName,
+  description: () => description,
+});
+</script>
+
+<template>
+  <section class="space-y-6 py-6">
+    <header>
+      <h1 class="text-4xl font-bold tracking-tight">{{ '{{' }} projectName {{ '}}' }}</h1>
+      <p class="mt-3 max-w-2xl text-lg text-slate-600 dark:text-slate-400">{{ '{{' }} description {{ '}}' }}</p>
+    </header>
+    <div class="flex flex-wrap gap-3">
+      <NuxtLink
+        :to="user ? '/account/profile' : '/account/login'"
+        class="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900"
+      >
+        {{ '{{' }} user ? "Your profile →" : "Sign in →" {{ '}}' }}
+      </NuxtLink>
+{% if cookiecutter.api_layer != 'none' -%}
+      <a
+        href="/api/docs"
+        target="_blank"
+        rel="noreferrer"
+        class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+      >
+        🚀 API docs
+      </a>
+{%- endif %}
+      <NuxtLink
+        to="/about"
+        class="rounded-md px-4 py-2 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800"
+      >
+        Learn more
+      </NuxtLink>
+    </div>
+  </section>
+</template>

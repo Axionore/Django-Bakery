@@ -600,6 +600,129 @@ fn react_recipe() -> Recipe {
     r
 }
 
+fn nuxt_full_recipe() -> Recipe {
+    let mut r = Recipe::defaults();
+    r.project_slug = "nuxt_app".into();
+    r.frontend = Frontend::Nuxt;
+    r.frontend_variant = django_bakery_engine::FrontendVariant::Full;
+    r.radix_flavor = None;
+    r.js_language = django_bakery_engine::JsLanguage::Typescript;
+    r.js_testing = true;
+    r
+}
+
+#[test]
+fn nuxt_full_recipe_emits_full_tree() {
+    let (_tmp, root) = render_recipe(&nuxt_full_recipe());
+    assert_present(&root, "pnpm-workspace.yaml");
+    for f in [
+        "frontend/package.json",
+        "frontend/tsconfig.json",
+        "frontend/nuxt.config.ts",
+        "frontend/app.vue",
+        "frontend/eslint.config.js",
+        "frontend/.prettierrc",
+        "frontend/.gitignore",
+        "frontend/.env.example",
+        "frontend/README.md",
+        "frontend/playwright.config.ts",
+        "frontend/vitest.config.ts",
+        "frontend/app/assets/css/main.css",
+        "frontend/app/layouts/default.vue",
+        "frontend/app/layouts/account.vue",
+        "frontend/app/pages/index.vue",
+        "frontend/app/pages/about.vue",
+        "frontend/app/pages/account/login.vue",
+        "frontend/app/pages/account/signup.vue",
+        "frontend/app/pages/account/profile.vue",
+        "frontend/app/pages/account/verify-email.vue",
+        "frontend/app/pages/account/mfa-challenge.vue",
+        "frontend/app/pages/account/mfa-activate.vue",
+        "frontend/app/pages/account/recovery-codes.vue",
+        "frontend/app/composables/useAuth.ts",
+        "frontend/app/composables/useCsrf.ts",
+        "frontend/app/composables/useApi.ts",
+        "frontend/app/middleware/auth.global.ts",
+        "frontend/app/middleware/auth.ts",
+        "frontend/app/middleware/guest.ts",
+        "frontend/app/types/allauth.d.ts",
+        "frontend/stores/auth.ts",
+        "frontend/server/.gitkeep",
+        "frontend/tests/stores/auth.test.ts",
+        "frontend/tests/e2e/login.spec.ts",
+    ] {
+        assert_present(&root, f);
+    }
+}
+
+#[test]
+fn nuxt_full_recipe_carries_no_skip_markers() {
+    let (_tmp, root) = render_recipe(&nuxt_full_recipe());
+    let mut offenders = Vec::new();
+    for entry in walkdir::WalkDir::new(root.join("frontend")) {
+        let entry = entry.expect("walk");
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let body = std::fs::read_to_string(entry.path()).unwrap_or_default();
+        if body.contains("__SKIP__") {
+            offenders.push(entry.path().display().to_string());
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "Nuxt full files contain __SKIP__:\n  - {}",
+        offenders.join("\n  - ")
+    );
+}
+
+#[test]
+fn nuxt_full_auth_composable_carries_security_invariants() {
+    let (_tmp, root) = render_recipe(&nuxt_full_recipe());
+    let body = read(&root, "frontend/app/composables/useAuth.ts");
+    assert!(body.contains("credentials: \"include\""));
+    assert!(body.contains("X-CSRFToken"));
+    assert!(body.contains("mfa_required"));
+    assert!(body.contains("email_verification_required"));
+    for forbidden in [
+        "localStorage.setItem",
+        "localStorage.getItem",
+        "sessionStorage.setItem",
+        "sessionStorage.getItem",
+    ] {
+        assert!(!body.contains(forbidden), "Nuxt useAuth must not call {forbidden}");
+    }
+}
+
+#[test]
+fn nuxt_full_pinia_store_does_not_persist_to_localstorage() {
+    let (_tmp, root) = render_recipe(&nuxt_full_recipe());
+    let body = read(&root, "frontend/stores/auth.ts");
+    // Reject ACTUAL persistence — calls or imports. Comments mentioning the
+    // anti-pattern are fine (and present, deliberately).
+    for forbidden in [
+        "localStorage.setItem",
+        "localStorage.getItem",
+        "sessionStorage.setItem",
+        "sessionStorage.getItem",
+        "window.localStorage",
+        "window.sessionStorage",
+        "pinia-plugin-persistedstate",
+    ] {
+        assert!(
+            !body.contains(forbidden),
+            "Pinia auth store must NOT persist via {forbidden} (session cookies only)"
+        );
+    }
+}
+
+#[test]
+fn nuxt_full_eslint_bans_v_html() {
+    let (_tmp, root) = render_recipe(&nuxt_full_recipe());
+    let body = read(&root, "frontend/eslint.config.js");
+    assert!(body.contains("vue/no-v-html"), "ESLint must ban v-html (OWASP A03)");
+}
+
 fn skeleton_recipe(frontend: Frontend) -> Recipe {
     let mut r = Recipe::defaults();
     r.project_slug = format!("{}_skel", frontend.as_str().replace('-', "_"));

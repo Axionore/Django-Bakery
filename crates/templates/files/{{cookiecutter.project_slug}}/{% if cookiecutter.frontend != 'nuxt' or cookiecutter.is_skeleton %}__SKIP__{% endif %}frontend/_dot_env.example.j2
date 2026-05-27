@@ -1,0 +1,17 @@
+# =============================================================================
+# {{ cookiecutter.project_name }} — frontend (Nuxt 4) environment
+# Copy to `.env` (gitignored). NEVER commit the real `.env`.
+# =============================================================================
+
+# Backend the Nitro proxy targets. In Docker Compose this is `http://django:8000`;
+# bare-metal dev it's `http://localhost:8000`.
+NITRO_BACKEND_URL=http://localhost:8000
+
+# Runtime config exposed to the client. Anything under `NUXT_PUBLIC_*` is
+# inlined into the bundle — never put secrets here.
+NUXT_PUBLIC_APP_NAME={{ cookiecutter.project_name }}
+
+{% if cookiecutter.use_sentry -%}
+# Sentry browser DSN. Leave blank to disable client-side error reporting.
+NUXT_PUBLIC_SENTRY_DSN=
+{%- endif %}

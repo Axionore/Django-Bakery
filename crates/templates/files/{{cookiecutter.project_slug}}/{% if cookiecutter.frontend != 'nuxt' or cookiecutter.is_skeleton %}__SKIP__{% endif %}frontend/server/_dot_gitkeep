@@ -1,0 +1,3 @@
+# Intentionally empty: we proxy /api + /_allauth to Django via Nitro routeRules
+# (see nuxt.config.ts). Drop server/api/*.ts here only if you want Nuxt itself
+# to handle a route — beware of duplicating backend logic.
