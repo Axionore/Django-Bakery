@@ -1,5 +1,12 @@
 # syntax=docker/dockerfile:1.7
 
+# Pinned uv version — bump via Renovate / Dependabot, never use :latest in prod.
+# Buildkit refuses to substitute ARGs in `COPY --from=image:$VAR` directly, so we
+# pull uv via a named stub stage (where ARG substitution at FROM IS allowed) and
+# then `COPY --from=uv-source` (a stage reference — no substitution needed).
+ARG UV_VERSION=0.7.6
+FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv-source
+
 # ----- builder ----------------------------------------------------------------
 FROM python:{{ cookiecutter.python_version }}-slim-bookworm AS builder
 
@@ -17,9 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 {%- endif %}
     && rm -rf /var/lib/apt/lists/*
 
-# Pinned uv version — bump via Renovate / Dependabot, never use :latest in prod.
-ARG UV_VERSION=0.7.6
-COPY --from=ghcr.io/astral-sh/uv:${UV_VERSION} /uv /uvx /usr/local/bin/
+COPY --from=uv-source /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 COPY pyproject.toml uv.lock* /app/
