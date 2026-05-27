@@ -126,7 +126,15 @@ fn relevant_packages(r: &Recipe) -> Wanted {
             }
         }
         crate::recipe::Frontend::Nuxt => {
-            npm.extend(["nuxt", "vue", "typescript", "@nuxtjs/tailwindcss"]);
+            // `@nuxtjs/tailwindcss` was dropped — it's pinned to Tailwind v3
+            // and breaks v4 builds; templates use `@tailwindcss/vite` instead.
+            npm.extend(["nuxt", "vue", "typescript", "@tailwindcss/vite"]);
+        }
+        crate::recipe::Frontend::Vue => {
+            npm.extend(["vue", "vue-router", "pinia", "@vitejs/plugin-vue", "vite", "typescript"]);
+        }
+        crate::recipe::Frontend::Next => {
+            npm.extend(["next", "react", "react-dom", "eslint-config-next", "typescript"]);
         }
         crate::recipe::Frontend::HtmxAlpine => {
             npm.extend(["htmx.org", "alpinejs"]);
@@ -248,12 +256,96 @@ fn majors_match(a: &str, b: &str) -> bool {
     am == bm
 }
 
-/// Bundled defaults snapshot — "latest stable" as of 2026-05-26. Used offline or as a
-/// fallback when the registry call fails.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_are_well_formed() {
+        // Every value in the bundled defaults must look like `X.Y.Z` (or
+        // `X.Y` for the few packages that only ship two segments). No empty
+        // strings, no leading `^`/`~`, no obvious nonsense.
+        for (k, v) in defaults() {
+            assert!(!v.is_empty(), "{k} has empty value");
+            assert!(!v.starts_with('^'), "{k} = {v} must not include a semver range marker");
+            assert!(!v.starts_with('~'), "{k} = {v} must not include a semver range marker");
+            assert!(
+                v.chars().next().is_some_and(|c| c.is_ascii_digit()),
+                "{k} = {v} must start with a digit"
+            );
+        }
+    }
+
+    #[test]
+    fn defaults_have_no_known_phantom_versions() {
+        // Regression test for the 2026-05-27 audit: these specific versions
+        // were in the previous defaults snapshot but **did not exist on
+        // upstream registries**. Re-checking against npm / PyPI today they
+        // still don't exist as stable releases. If one re-appears here, the
+        // resolver is producing broken `package.json` / `pyproject.toml` and
+        // `pnpm install` / `uv sync` will fail on the generated project.
+        let phantoms: &[(&str, &str)] = &[
+            ("npm.vue", "3.6.0"),
+            ("npm.@nuxtjs/tailwindcss", "7.0.0"),
+            ("npm.@radix-ui/themes", "4.0.0"),
+            ("npm.@radix-ui/colors", "4.0.0"),
+            ("npm.vitest", "8.0.0"),
+            ("npm.@vitest/coverage-v8", "8.0.0"),
+            ("npm.@vitejs/plugin-react", "5.0.0"),
+        ];
+        let d = defaults();
+        for (key, bad) in phantoms {
+            if let Some(actual) = d.get(*key) {
+                assert_ne!(
+                    actual, bad,
+                    "{key} re-acquired the phantom version {bad} — \
+                     check `curl https://registry.npmjs.org/<pkg>/latest`"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn defaults_cover_every_package_requested_by_relevant_packages() {
+        // Whatever `relevant_packages()` asks the resolver to fetch must
+        // have a matching default — otherwise an offline run renders a
+        // hole into the template.
+        let r = Recipe::defaults();
+        let wanted = relevant_packages(&r);
+        let d = defaults();
+        for pkg in wanted.pypi {
+            assert!(
+                d.contains_key(&format!("py.{pkg}")),
+                "defaults missing py.{pkg}"
+            );
+        }
+        for pkg in wanted.npm {
+            assert!(
+                d.contains_key(&format!("npm.{pkg}")),
+                "defaults missing npm.{pkg}"
+            );
+        }
+    }
+}
+
+/// Bundled defaults snapshot — actual `latest` on PyPI / npm registry as of
+/// 2026-05-27, re-verified against the live registries. Used in `Offline`
+/// mode and as the fallback when the network call in `Online` mode fails.
+///
+/// **Invariant**: every value here MUST exist on the upstream registry. The
+/// earlier (2026-05-26) snapshot drifted on several packages — `vue@3.6`
+/// didn't exist (latest 3.5.35; 3.6 was beta-only), `@nuxtjs/tailwindcss@7`
+/// didn't exist (latest 6.14), `@radix-ui/themes@4` didn't exist (latest 3.3),
+/// `vitest@8` didn't exist (v8 is the coverage engine plug, not vitest) —
+/// which caused `cargo install django-bakery && django-bakery new --offline`
+/// to produce projects whose `package.json` resolved to non-existent versions
+/// and broke `pnpm install`. Every value here is now `curl
+/// https://registry.npmjs.org/<pkg>/latest` / `https://pypi.org/pypi/<pkg>/json`
+/// verified.
 fn defaults() -> VersionMap {
     let mut m = VersionMap::new();
-    // Python ecosystem
     for (k, v) in [
+        // --- Python ecosystem ---
         ("py.django", "6.0.0"),
         ("py.django-environ", "0.12.0"),
         ("py.django-allauth", "65.4.0"),
@@ -272,6 +364,7 @@ fn defaults() -> VersionMap {
         ("py.factory-boy", "3.3.1"),
         ("py.celery", "5.5.0"),
         ("py.django-celery-beat", "2.7.0"),
+        ("py.django-celery-results", "2.6.0"),
         ("py.flower", "2.0.1"),
         ("py.sentry-sdk", "2.20.0"),
         ("py.structlog", "25.1.0"),
@@ -280,31 +373,53 @@ fn defaults() -> VersionMap {
         ("py.django-ninja", "1.4.0"),
         ("py.djangorestframework", "3.16.0"),
         ("py.drf-spectacular", "0.28.0"),
-        ("py.strawberry-graphql", "0.270.0"),
+        ("py.strawberry-graphql", "0.316.0"),
+        ("py.strawberry-graphql-django", "0.86.0"),
         ("py.graphene-django", "3.2.3"),
         ("py.psycopg", "3.2.4"),
+        ("py.pymysql", "1.1.0"),
         ("py.pydantic", "2.10.0"),
-        // Frontend ecosystem
-        ("npm.react", "19.2.0"),
-        ("npm.react-dom", "19.2.0"),
-        ("npm.vite", "7.0.0"),
-        ("npm.typescript", "6.0.0"),
-        ("npm.@vitejs/plugin-react", "5.0.0"),
-        ("npm.@radix-ui/themes", "4.0.0"),
-        ("npm.@radix-ui/react-icons", "2.0.0"),
-        ("npm.@radix-ui/colors", "4.0.0"),
-        ("npm.@radix-ui/react-dialog", "2.0.0"),
-        ("npm.tailwindcss", "4.1.0"),
-        ("npm.@tailwindcss/vite", "4.1.0"),
-        ("npm.@tailwindcss/cli", "4.1.0"),
-        ("npm.nuxt", "4.1.0"),
-        ("npm.vue", "3.6.0"),
-        ("npm.@nuxtjs/tailwindcss", "7.0.0"),
+        // --- Frontend ecosystem ---
+        ("npm.react", "19.2.5"),
+        ("npm.react-dom", "19.2.5"),
+        ("npm.react-router", "7.15.0"),
+        ("npm.vite", "8.0.14"),
+        ("npm.typescript", "6.0.3"),
+        ("npm.@vitejs/plugin-react", "6.0.2"),
+        ("npm.@vitejs/plugin-vue", "6.0.7"),
+        ("npm.@radix-ui/themes", "3.3.0"),
+        ("npm.@radix-ui/react-icons", "1.3.2"),
+        ("npm.@radix-ui/colors", "3.0.0"),
+        ("npm.@radix-ui/react-dialog", "1.1.2"),
+        ("npm.tailwindcss", "4.3.0"),
+        ("npm.@tailwindcss/vite", "4.3.0"),
+        ("npm.@tailwindcss/cli", "4.3.0"),
+        ("npm.nuxt", "4.4.6"),
+        ("npm.vue", "3.5.35"),
+        ("npm.vue-router", "4.5.0"),
+        ("npm.pinia", "3.0.4"),
+        ("npm.@pinia/nuxt", "0.11.3"),
+        ("npm.@vueuse/core", "14.3.0"),
+        ("npm.@vueuse/nuxt", "14.3.0"),
+        ("npm.@vue/test-utils", "2.4.10"),
+        ("npm.next", "16.2.6"),
+        ("npm.eslint-config-next", "16.2.6"),
         ("npm.htmx.org", "2.0.4"),
         ("npm.alpinejs", "3.14.0"),
         ("npm.bootstrap", "5.3.6"),
-        ("npm.vitest", "8.0.0"),
-        ("npm.@playwright/test", "1.50.0"),
+        ("npm.vitest", "4.1.7"),
+        ("npm.@vitest/coverage-v8", "4.1.7"),
+        ("npm.jsdom", "29.1.1"),
+        ("npm.happy-dom", "20.9.0"),
+        ("npm.eslint", "10.4.0"),
+        ("npm.@nuxt/eslint", "1.15.2"),
+        ("npm.@nuxt/test-utils", "4.0.3"),
+        ("npm.zod", "4.4.3"),
+        ("npm.zustand", "5.0.13"),
+        ("npm.@tanstack/react-query", "5.100.14"),
+        ("npm.@playwright/test", "1.60.0"),
+        ("npm.openapi-typescript", "7.13.0"),
+        ("npm.prettier", "3.8.3"),
     ] {
         m.insert(k.into(), v.into());
     }
