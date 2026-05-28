@@ -61,7 +61,7 @@ fn build_agent() -> ureq::Agent {
         .user_agent(concat!(
             "django-bakery/",
             env!("CARGO_PKG_VERSION"),
-            " (+https://github.com/Axionore/Django-Barkery)"
+            " (+https://github.com/Axionore/Django-Bakery)"
         ))
         .build();
     ureq::Agent::new_with_config(config)

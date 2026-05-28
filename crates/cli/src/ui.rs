@@ -81,7 +81,7 @@ pub fn print_success(r: &Recipe, report: &RenderReport) {
     }
     println!();
     println!(
-        "  {} https://github.com/Axionore/Django-Barkery",
+        "  {} https://github.com/Axionore/Django-Bakery",
         style("Docs:").bold()
     );
     println!();

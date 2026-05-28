@@ -91,16 +91,16 @@ cargo install django-bakery
 brew install axionore/tap/django-bakery
 
 # Pre-built binary (Linux / macOS / Windows)
-curl -fsSL https://raw.githubusercontent.com/Axionore/Django-Barkery/main/installer/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Axionore/Django-Bakery/main/installer/install.sh | sh
 
 # Docker
-docker run --rm -it -v "$PWD:/out" ghcr.io/Axionore/Django-Barkery new --output /out
+docker run --rm -it -v "$PWD:/out" ghcr.io/Axionore/Django-Bakery new --output /out
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/Axionore/Django-Barkery
+git clone https://github.com/Axionore/Django-Bakery
 cd django-bakery
 cargo install --path crates/cli
 ```

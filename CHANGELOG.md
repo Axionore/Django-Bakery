@@ -94,4 +94,4 @@ ready, every prompt option boots end-to-end with zero manual cleanup.
   per-tenant async task queues). Foundations are present; specialized layers
   are project-specific.
 
-[0.1.0]: https://github.com/Axionore/Django-Barkery/releases/tag/v0.1.0
+[0.1.0]: https://github.com/Axionore/Django-Bakery/releases/tag/v0.1.0

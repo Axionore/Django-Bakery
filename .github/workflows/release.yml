@@ -106,7 +106,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       # OCI / Docker registry spec rejects uppercase characters in repository
       # names. `${{ github.repository }}` preserves the literal case
-      # (`Axionore/Django-Barkery`), so we lowercase it once here and reuse the
+      # (`Axionore/Django-Bakery`), so we lowercase it once here and reuse the
       # result for tagging + attestation. Using ${VAR,,} (bash 4 lowercase
       # parameter expansion) keeps the substitution local to one step.
       - name: Compute lowercase image name
