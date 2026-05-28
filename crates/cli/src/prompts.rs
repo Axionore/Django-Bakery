@@ -15,7 +15,7 @@ use inquire::validator::Validation;
 /// Build a Recipe by walking the user through grouped prompts.
 pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
     let defaults = preset.cloned().unwrap_or_else(Recipe::defaults);
-    section("Project basics");
+    stage(1);
 
     let project_name = Text::new("Project name")
         .with_default(&defaults.project_name)
@@ -70,7 +70,7 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         .with_default(defaults.open_source)
         .prompt()?;
 
-    section("Stack");
+    stage(2);
 
     let python_version = pick(
         "Python version",
@@ -145,7 +145,7 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         defaults.css_framework,
     )?;
 
-    section("Production add-ons");
+    stage(3);
 
     let use_celery = Confirm::new("Add Celery (+ Beat + Flower)?")
         .with_default(defaults.use_celery)
@@ -258,11 +258,42 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
     })
 }
 
-fn section(title: &str) {
+/// The interactive flow's stages, in order. The emoji is a small bakery pun that
+/// also hints at the stage's meaning: a mixing bowl to start, a *stack* of pancakes
+/// for the tech stack, a cherry-on-top for the optional add-ons. `console::Emoji`
+/// degrades to nothing on terminals that don't render emoji.
+const STAGES: [(console::Emoji<'static, 'static>, &str); 3] = [
+    (console::Emoji("🥣 ", ""), "Project basics"),
+    (console::Emoji("🥞 ", ""), "Stack"),
+    (console::Emoji("🍒 ", ""), "Production add-ons"),
+];
+
+/// Render the stepper rail above each section so the user always knows where they
+/// are in the branching questionnaire. Discrete `[n/3]` rather than a percentage —
+/// the number of questions per stage is conditional (graph DB, Radix flavor, broker
+/// only appear sometimes), so a fill-bar would jump around and read as broken.
+fn stage(current: usize) {
+    let separator = console::style("  →  ").dim().to_string();
+    let rail = STAGES
+        .iter()
+        .enumerate()
+        .map(|(index, (emoji, label))| {
+            let step = index + 1;
+            let chip = format!("{emoji}{label}");
+            match step.cmp(&current) {
+                std::cmp::Ordering::Equal => console::style(chip).cyan().bold(),
+                std::cmp::Ordering::Less => console::style(chip).green().dim(),
+                std::cmp::Ordering::Greater => console::style(chip).dim(),
+            }
+            .to_string()
+        })
+        .collect::<Vec<_>>()
+        .join(&separator);
+
     eprintln!(
-        "\n{}  {}\n{}",
-        console::style("▸").cyan().bold(),
-        console::style(title).bold(),
+        "\n  {}   {}\n  {}",
+        rail,
+        console::style(format!("[{current}/{}]", STAGES.len())).dim(),
         console::style("─".repeat(60)).dim(),
     );
 }

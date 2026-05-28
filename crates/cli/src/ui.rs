@@ -15,6 +15,7 @@ pub fn banner() {
             env!("CARGO_PKG_VERSION")
         ))
     );
+    println!("  {}", dim.apply_to("Preheating the oven — let's bake a Django app."));
     println!();
 }
 
@@ -52,10 +53,13 @@ pub fn print_summary(r: &Recipe) {
 
 pub fn print_success(r: &Recipe, report: &RenderReport) {
     let ok = style("✔").green().bold();
+    let croissant = console::Emoji("🥐  ", "");
     println!();
     println!(
-        "{}  Created {} ({} files, {} directories, {} ms)",
+        "{}  {}{} {} ({} files, {} directories, {} ms)",
         ok,
+        croissant,
+        style("Fresh out of the oven —").bold(),
         style(report.project_root.display()).bold(),
         report.files_written,
         report.directories_created,
