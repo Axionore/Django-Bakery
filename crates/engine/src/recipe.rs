@@ -317,6 +317,7 @@ str_enum! {
         AzureBlob => "azure-blob",
         Whitenoise => "whitenoise",
         Nginx => "nginx",
+        None => "none",
     }
 }
 

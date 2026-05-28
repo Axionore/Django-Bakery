@@ -443,6 +443,7 @@ fn storage_options() -> Vec<Labeled<Storage>> {
         Labeled { value: Storage::AzureBlob, label: "Azure Blob Storage", hint: "" },
         Labeled { value: Storage::Whitenoise, label: "WhiteNoise (static only)", hint: "no media uploads" },
         Labeled { value: Storage::Nginx, label: "nginx-served media", hint: "self-hosted" },
+        Labeled { value: Storage::None, label: "None", hint: "Django defaults / local filesystem" },
     ]
 }
 
