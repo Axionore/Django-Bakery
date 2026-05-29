@@ -1,0 +1,27 @@
+# Local pre-commit hooks for the django-bakery generator (Rust workspace).
+#
+# These mirror the `rust` CI job (.github/workflows/ci.yml) so formatting and lint
+# drift is caught at commit time, not days later in CI. The release pipeline doesn't
+# run fmt/clippy, so without this gate `main` can silently go red.
+#
+# One-time setup:
+#   pipx install pre-commit   # or: uv tool install pre-commit
+#   pre-commit install
+#
+# rustfmt + clippy come from rust-toolchain.toml (components = ["rustfmt", "clippy"]),
+# so no extra install is needed once the pinned toolchain is set up.
+repos:
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt --check
+        entry: cargo fmt --all -- --check
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: cargo-clippy
+        name: cargo clippy -D warnings
+        entry: cargo clippy --all-targets --workspace -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
