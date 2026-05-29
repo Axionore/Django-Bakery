@@ -186,7 +186,11 @@ fn cmd_bake(args: BakeArgs) -> Result<()> {
 fn cmd_validate(path: PathBuf) -> Result<()> {
     let recipe = recipe_io::load(&path)?;
     recipe.validate().map_err(|e| anyhow::anyhow!(e))?;
-    println!("{} {}", console::style("✓").green().bold(), "recipe is valid");
+    println!(
+        "{} {}",
+        console::style("✓").green().bold(),
+        "recipe is valid"
+    );
     Ok(())
 }
 
@@ -208,7 +212,9 @@ fn init_tracing(verbose: u8) {
         _ => "trace",
     };
     let _ = tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level)))
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(level)),
+        )
         .with_target(false)
         .compact()
         .try_init();

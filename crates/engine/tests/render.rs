@@ -166,7 +166,12 @@ fn dotfile_shadow_convention_emits_real_dotfiles() {
     let (_tmp, root) = render_recipe(&recipe);
 
     // The `_dot_X` source files must come out as real dotfiles.
-    for d in [".env.example", ".gitignore", ".editorconfig", ".dockerignore"] {
+    for d in [
+        ".env.example",
+        ".gitignore",
+        ".editorconfig",
+        ".dockerignore",
+    ] {
         assert_present(&root, d);
     }
     assert_present(&root, ".vscode/settings.json");
@@ -440,7 +445,11 @@ fn env_example_uses_placeholders_not_real_secrets() {
     let (_tmp, root) = render_recipe(&recipe);
     let body = read(&root, ".env.example");
     // Every secret field must be a placeholder, not a CSPRNG value.
-    for line_prefix in ["DJANGO_SECRET_KEY=", "POSTGRES_PASSWORD=", "REDIS_PASSWORD="] {
+    for line_prefix in [
+        "DJANGO_SECRET_KEY=",
+        "POSTGRES_PASSWORD=",
+        "REDIS_PASSWORD=",
+    ] {
         let line = body
             .lines()
             .find(|l| l.starts_with(line_prefix))
@@ -513,9 +522,18 @@ fn env_generated_for_container_setups() {
     let (_tmp, root) = render_recipe(&recipe);
     assert_present(&root, ".env");
     let env = read(&root, ".env");
-    assert!(env.contains("DJANGO_SUPERUSER_EMAIL="), ".env must seed the superuser");
-    assert!(env.contains("DATABASE_URL="), ".env must define DATABASE_URL");
-    assert!(env.contains("POSTGRES_PASSWORD="), ".env must carry the DB password");
+    assert!(
+        env.contains("DJANGO_SUPERUSER_EMAIL="),
+        ".env must seed the superuser"
+    );
+    assert!(
+        env.contains("DATABASE_URL="),
+        ".env must define DATABASE_URL"
+    );
+    assert!(
+        env.contains("POSTGRES_PASSWORD="),
+        ".env must carry the DB password"
+    );
 }
 
 #[test]
@@ -551,8 +569,14 @@ fn mysql_compose_service_uses_mysql_image() {
     recipe.relational_db = RelationalDb::Mysql;
     let (_tmp, root) = render_recipe(&recipe);
     let compose = read(&root, "compose.local.yml");
-    assert!(compose.contains("\n  mysql:"), "a `mysql` DB service must be defined");
-    assert!(compose.contains("image: mysql:9"), "mysql recipe must use the mysql:9 image");
+    assert!(
+        compose.contains("\n  mysql:"),
+        "a `mysql` DB service must be defined"
+    );
+    assert!(
+        compose.contains("image: mysql:9"),
+        "mysql recipe must use the mysql:9 image"
+    );
     let env = read(&root, ".env");
     assert!(
         env.contains("MYSQL_ROOT_PASSWORD=") && env.contains("@mysql:3306/"),
@@ -567,7 +591,10 @@ fn mariadb_compose_service_uses_mariadb_image() {
     let (_tmp, root) = render_recipe(&recipe);
     let compose = read(&root, "compose.local.yml");
     // Service is named `mysql` for both engines so DATABASE_URL's host stays constant.
-    assert!(compose.contains("\n  mysql:"), "a DB service must be defined");
+    assert!(
+        compose.contains("\n  mysql:"),
+        "a DB service must be defined"
+    );
     assert!(
         compose.contains("image: mariadb:lts"),
         "mariadb recipe must use the mariadb image"
@@ -697,7 +724,10 @@ fn admin_url_has_random_suffix() {
         value.starts_with("admin-") && value.ends_with("/") && value.len() > "admin-/".len() + 8,
         "DJANGO_ADMIN_URL must be a random-suffixed path, got {value:?}"
     );
-    assert_ne!(value, "admin/", "the unguessable default is the whole point");
+    assert_ne!(
+        value, "admin/",
+        "the unguessable default is the whole point"
+    );
 }
 
 #[test]
@@ -787,7 +817,10 @@ fn malicious_recipe_slug_with_traversal_is_rejected_by_validator() {
     // Validator gate — first line of defense.
     let mut r = Recipe::defaults();
     r.project_slug = "../etc/passwd".into();
-    assert!(r.validate().is_err(), "validator must reject path-traversal in slug");
+    assert!(
+        r.validate().is_err(),
+        "validator must reject path-traversal in slug"
+    );
 }
 
 fn react_recipe() -> Recipe {
@@ -922,7 +955,10 @@ fn next_full_auth_client_carries_security_invariants() {
         "sessionStorage.setItem",
         "sessionStorage.getItem",
     ] {
-        assert!(!body.contains(forbidden), "Next auth client must not call {forbidden}");
+        assert!(
+            !body.contains(forbidden),
+            "Next auth client must not call {forbidden}"
+        );
     }
 }
 
@@ -956,7 +992,10 @@ fn next_full_profile_page_is_server_component_with_redirect_guard() {
         body.contains("redirect(\"/account/login"),
         "profile page must redirect unauthenticated users server-side"
     );
-    assert!(body.contains("currentUser()"), "profile page must read currentUser() from server.ts");
+    assert!(
+        body.contains("currentUser()"),
+        "profile page must read currentUser() from server.ts"
+    );
 }
 
 #[test]
@@ -976,7 +1015,10 @@ fn next_full_next_config_ships_security_headers() {
 fn next_full_eslint_bans_raw_html() {
     let (_tmp, root) = render_recipe(&next_full_recipe());
     let body = read(&root, "frontend/eslint.config.js");
-    assert!(body.contains("react/no-danger"), "ESLint must ban the raw-HTML React API (OWASP A03)");
+    assert!(
+        body.contains("react/no-danger"),
+        "ESLint must ban the raw-HTML React API (OWASP A03)"
+    );
 }
 
 #[test]
@@ -1062,7 +1104,10 @@ fn vue_full_auth_client_carries_security_invariants() {
         "sessionStorage.setItem",
         "sessionStorage.getItem",
     ] {
-        assert!(!body.contains(forbidden), "Vue auth client must not call {forbidden}");
+        assert!(
+            !body.contains(forbidden),
+            "Vue auth client must not call {forbidden}"
+        );
     }
 }
 
@@ -1088,18 +1133,30 @@ fn vue_full_pinia_store_does_not_persist_to_localstorage() {
 fn vue_full_eslint_bans_v_html() {
     let (_tmp, root) = render_recipe(&vue_full_recipe());
     let body = read(&root, "frontend/eslint.config.js");
-    assert!(body.contains("vue/no-v-html"), "ESLint must ban v-html (OWASP A03)");
+    assert!(
+        body.contains("vue/no-v-html"),
+        "ESLint must ban v-html (OWASP A03)"
+    );
 }
 
 #[test]
 fn vue_full_router_has_auth_guards() {
     let (_tmp, root) = render_recipe(&vue_full_recipe());
     let guards = read(&root, "frontend/src/auth/guards.ts");
-    assert!(guards.contains("router.beforeEach"), "router-level beforeEach guard required");
-    assert!(guards.contains("requiresAuth"), "must check requiresAuth meta");
+    assert!(
+        guards.contains("router.beforeEach"),
+        "router-level beforeEach guard required"
+    );
+    assert!(
+        guards.contains("requiresAuth"),
+        "must check requiresAuth meta"
+    );
     assert!(guards.contains("guest"), "must check guest meta");
     let router = read(&root, "frontend/src/router/index.ts");
-    assert!(router.contains("installAuthGuards"), "router/index.ts must install guards");
+    assert!(
+        router.contains("installAuthGuards"),
+        "router/index.ts must install guards"
+    );
     assert!(
         router.contains("requiresAuth: true"),
         "auth-required routes must be annotated"
@@ -1196,7 +1253,10 @@ fn nuxt_full_auth_composable_carries_security_invariants() {
         "sessionStorage.setItem",
         "sessionStorage.getItem",
     ] {
-        assert!(!body.contains(forbidden), "Nuxt useAuth must not call {forbidden}");
+        assert!(
+            !body.contains(forbidden),
+            "Nuxt useAuth must not call {forbidden}"
+        );
     }
 }
 
@@ -1226,7 +1286,10 @@ fn nuxt_full_pinia_store_does_not_persist_to_localstorage() {
 fn nuxt_full_eslint_bans_v_html() {
     let (_tmp, root) = render_recipe(&nuxt_full_recipe());
     let body = read(&root, "frontend/eslint.config.js");
-    assert!(body.contains("vue/no-v-html"), "ESLint must ban v-html (OWASP A03)");
+    assert!(
+        body.contains("vue/no-v-html"),
+        "ESLint must ban v-html (OWASP A03)"
+    );
 }
 
 fn skeleton_recipe(frontend: Frontend) -> Recipe {
@@ -1326,7 +1389,12 @@ fn skeleton_next_emits_minimal_tree() {
 
 #[test]
 fn all_skeleton_readmes_document_owasp_baseline() {
-    for fe in [Frontend::React, Frontend::Nuxt, Frontend::Vue, Frontend::Next] {
+    for fe in [
+        Frontend::React,
+        Frontend::Nuxt,
+        Frontend::Vue,
+        Frontend::Next,
+    ] {
         let (_tmp, root) = render_recipe(&skeleton_recipe(fe));
         let body = read(&root, "frontend/README.md");
         assert!(
@@ -1336,7 +1404,8 @@ fn all_skeleton_readmes_document_owasp_baseline() {
         );
         let lower = body.to_lowercase();
         assert!(
-            lower.contains("localstorage") && (lower.contains("never") || lower.contains("anti-pattern")),
+            lower.contains("localstorage")
+                && (lower.contains("never") || lower.contains("anti-pattern")),
             "{} skeleton README must warn against JWT-in-localStorage",
             fe.as_str()
         );
@@ -1428,10 +1497,18 @@ fn frontend_recipe_carries_no_skip_markers() {
 #[test]
 fn frontend_dotfile_shadow_extends_to_subtree() {
     let (_tmp, root) = render_recipe(&react_recipe());
-    for d in ["frontend/.gitignore", "frontend/.env.example", "frontend/.prettierrc"] {
+    for d in [
+        "frontend/.gitignore",
+        "frontend/.env.example",
+        "frontend/.prettierrc",
+    ] {
         assert_present(&root, d);
     }
-    for raw in ["frontend/_dot_gitignore", "frontend/_dot_env.example", "frontend/_dot_prettierrc"] {
+    for raw in [
+        "frontend/_dot_gitignore",
+        "frontend/_dot_env.example",
+        "frontend/_dot_prettierrc",
+    ] {
         assert_absent(&root, raw);
     }
 }
@@ -1442,9 +1519,18 @@ fn pnpm_workspace_yaml_present_when_pnpm_needed() {
     // the project-wide pnpm 11 settings (onlyBuiltDependencies, etc.).
     let (_tmp1, r1) = render_recipe(&react_recipe());
     let body = read(&r1, "pnpm-workspace.yaml");
-    assert!(body.contains("packages:"), "SPA pnpm-workspace.yaml must declare a package");
-    assert!(body.contains("frontend"), "SPA pnpm-workspace.yaml must list frontend");
-    assert!(body.contains("onlyBuiltDependencies"), "must carry build-script allowlist");
+    assert!(
+        body.contains("packages:"),
+        "SPA pnpm-workspace.yaml must declare a package"
+    );
+    assert!(
+        body.contains("frontend"),
+        "SPA pnpm-workspace.yaml must list frontend"
+    );
+    assert!(
+        body.contains("onlyBuiltDependencies"),
+        "must carry build-script allowlist"
+    );
 
     // HTMX + Tailwind (the default) ships a root package.json for the Tailwind
     // CLI build — pnpm 11 requires `packages:` even when the workspace has
@@ -1453,10 +1539,22 @@ fn pnpm_workspace_yaml_present_when_pnpm_needed() {
     htmx.project_slug = "htmx_app".into();
     let (_tmp2, r2) = render_recipe(&htmx);
     let body = read(&r2, "pnpm-workspace.yaml");
-    assert!(body.contains("packages:"), "htmx workspace.yaml must declare packages (pnpm 11 requires it)");
-    assert!(body.contains("\".\""), "htmx workspace.yaml lists \".\" as the only package");
-    assert!(!body.contains("- frontend"), "htmx workspace must not reference a nested frontend dir");
-    assert!(body.contains("onlyBuiltDependencies"), "must still carry build-script allowlist");
+    assert!(
+        body.contains("packages:"),
+        "htmx workspace.yaml must declare packages (pnpm 11 requires it)"
+    );
+    assert!(
+        body.contains("\".\""),
+        "htmx workspace.yaml lists \".\" as the only package"
+    );
+    assert!(
+        !body.contains("- frontend"),
+        "htmx workspace must not reference a nested frontend dir"
+    );
+    assert!(
+        body.contains("onlyBuiltDependencies"),
+        "must still carry build-script allowlist"
+    );
 
     // HTMX without Tailwind: no Node at all, so no workspace.yaml.
     let mut htmx_no_css = Recipe::defaults();
@@ -1485,7 +1583,10 @@ fn github_actions_workflow_renders_with_expected_shape() {
 
     let deploy = read(&root, ".github/workflows/deploy.yml");
     for sentinel in ["name: Deploy", "on:", "jobs:", "deploy:", "tags:"] {
-        assert!(deploy.contains(sentinel), "deploy.yml missing sentinel: {sentinel}");
+        assert!(
+            deploy.contains(sentinel),
+            "deploy.yml missing sentinel: {sentinel}"
+        );
     }
 }
 
@@ -1500,18 +1601,29 @@ fn compose_traefik_setup_ships_both_compose_files_and_traefik_config() {
     for f in ["compose.local.yml", "compose.production.yml"] {
         let body = read(&root, f);
         assert!(body.contains("services:"), "{f} must declare services");
-        assert!(body.contains("django:"), "{f} must include the django service");
+        assert!(
+            body.contains("django:"),
+            "{f} must include the django service"
+        );
     }
 
     // Production compose adds traefik
     let prod = read(&root, "compose.production.yml");
-    assert!(prod.contains("traefik:"), "production compose must include traefik service");
+    assert!(
+        prod.contains("traefik:"),
+        "production compose must include traefik service"
+    );
 
     // Traefik config + Dockerfiles exist
     let traefik_yml = read(&root, "compose/production/traefik/traefik.yml");
-    assert!(traefik_yml.contains("entryPoints:"), "traefik.yml must define entryPoints");
-    assert!(traefik_yml.contains("certificatesResolvers:") || traefik_yml.contains("certificates"),
-            "traefik.yml must configure TLS resolver");
+    assert!(
+        traefik_yml.contains("entryPoints:"),
+        "traefik.yml must define entryPoints"
+    );
+    assert!(
+        traefik_yml.contains("certificatesResolvers:") || traefik_yml.contains("certificates"),
+        "traefik.yml must configure TLS resolver"
+    );
 }
 
 #[test]
@@ -1522,7 +1634,10 @@ fn compose_only_setup_ships_compose_files_without_traefik() {
     let (_tmp, root) = render_recipe(&r);
 
     let prod = read(&root, "compose.production.yml");
-    assert!(!prod.contains("traefik:"), "compose-only must NOT include traefik");
+    assert!(
+        !prod.contains("traefik:"),
+        "compose-only must NOT include traefik"
+    );
     assert_absent(&root, "compose/production/traefik/traefik.yml");
 }
 
@@ -1541,7 +1656,10 @@ fn multi_tenant_recipe_scaffolds_tenants_app_and_splits_installed_apps() {
     assert!(models.contains("auto_create_schema = True"));
 
     // create_tenant + bootstrap_public_tenant mgmt commands
-    let bootstrap = read(&root, "apps/tenants/management/commands/bootstrap_public_tenant.py");
+    let bootstrap = read(
+        &root,
+        "apps/tenants/management/commands/bootstrap_public_tenant.py",
+    );
     assert!(bootstrap.contains("schema_name=\"public\""));
 
     // Settings: SHARED_APPS / TENANT_APPS / DATABASE_ROUTERS / TenantMainMiddleware
@@ -1577,7 +1695,9 @@ fn multi_tenant_rejects_non_postgres() {
     let mut r = Recipe::defaults();
     r.multi_tenant = true;
     r.relational_db = django_bakery_engine::RelationalDb::Sqlite;
-    let err = r.validate().expect_err("multi_tenant + sqlite must be rejected");
+    let err = r
+        .validate()
+        .expect_err("multi_tenant + sqlite must be rejected");
     assert!(err.contains("multi_tenant requires"));
 }
 
@@ -1671,33 +1791,76 @@ fn production_dockerfile_meets_security_baseline() {
 
     // Multi-stage build — keeps the runtime image free of build toolchains
     // (build-essential, dev libs) that pad attack surface.
-    let from_count = body.matches("\nFROM ").count() + if body.starts_with("FROM ") { 1 } else { 0 };
-    assert!(from_count >= 2, "Dockerfile must be multi-stage (≥2 FROM directives), saw {from_count}");
-    assert!(body.contains("AS builder"), "first stage must be named `builder`");
+    let from_count =
+        body.matches("\nFROM ").count() + if body.starts_with("FROM ") { 1 } else { 0 };
+    assert!(
+        from_count >= 2,
+        "Dockerfile must be multi-stage (≥2 FROM directives), saw {from_count}"
+    );
+    assert!(
+        body.contains("AS builder"),
+        "first stage must be named `builder`"
+    );
 
     // Non-root runtime — never run as root in production.
-    assert!(body.contains("USER django"), "Dockerfile must drop to a non-root user");
-    assert!(body.contains("groupadd --system django"), "must create the django system group");
-    assert!(body.contains("useradd --system --gid django"), "must create a system user, not interactive");
+    assert!(
+        body.contains("USER django"),
+        "Dockerfile must drop to a non-root user"
+    );
+    assert!(
+        body.contains("groupadd --system django"),
+        "must create the django system group"
+    );
+    assert!(
+        body.contains("useradd --system --gid django"),
+        "must create a system user, not interactive"
+    );
 
     // Reproducibility — frozen lockfile, pinned uv via ARG, pinned base image.
-    assert!(body.contains("uv sync --frozen"), "must use frozen lockfile for reproducible builds");
-    assert!(body.contains("ARG UV_VERSION="), "uv version must be pinned via ARG (not :latest)");
-    assert!(body.contains("slim-bookworm"), "base image must be pinned to a specific Debian release");
-    assert!(!body.contains("python:latest"), "Dockerfile must not use python:latest");
+    assert!(
+        body.contains("uv sync --frozen"),
+        "must use frozen lockfile for reproducible builds"
+    );
+    assert!(
+        body.contains("ARG UV_VERSION="),
+        "uv version must be pinned via ARG (not :latest)"
+    );
+    assert!(
+        body.contains("slim-bookworm"),
+        "base image must be pinned to a specific Debian release"
+    );
+    assert!(
+        !body.contains("python:latest"),
+        "Dockerfile must not use python:latest"
+    );
 
     // Apt hygiene — `--no-install-recommends` keeps the runtime lean.
-    assert!(body.contains("--no-install-recommends"), "apt-get install must use --no-install-recommends");
-    assert!(body.contains("rm -rf /var/lib/apt/lists"), "must clear apt cache after install");
+    assert!(
+        body.contains("--no-install-recommends"),
+        "apt-get install must use --no-install-recommends"
+    );
+    assert!(
+        body.contains("rm -rf /var/lib/apt/lists"),
+        "must clear apt cache after install"
+    );
 
     // Healthcheck — required for docker compose orchestration + early
     // detection of zombie containers (OWASP A09 ops resilience).
-    assert!(body.contains("HEALTHCHECK"), "Dockerfile must declare a HEALTHCHECK");
-    assert!(body.contains("/healthz/"), "HEALTHCHECK must probe /healthz/ (the wired liveness endpoint)");
+    assert!(
+        body.contains("HEALTHCHECK"),
+        "Dockerfile must declare a HEALTHCHECK"
+    );
+    assert!(
+        body.contains("/healthz/"),
+        "HEALTHCHECK must probe /healthz/ (the wired liveness endpoint)"
+    );
 
     // Process model — explicit ENTRYPOINT + CMD, never `CMD python manage.py`
     // in a string form (shell-form CMD inherits PID 1 from sh, breaks signals).
-    assert!(body.contains("ENTRYPOINT [\"/entrypoint\"]"), "ENTRYPOINT must use exec form");
+    assert!(
+        body.contains("ENTRYPOINT [\"/entrypoint\"]"),
+        "ENTRYPOINT must use exec form"
+    );
     assert!(body.contains("CMD [\"/start\"]"), "CMD must use exec form");
 }
 
@@ -1731,47 +1894,97 @@ fn frontend_package_json_versions_come_from_resolver_not_literals() {
                 .and_then(|v| v.as_str())
                 .unwrap_or_else(|| panic!("{pkg_rel}: missing dep {name}"));
             assert!(
-                val.starts_with('^') && val.len() > 1 && val[1..].chars().next().unwrap().is_ascii_digit(),
+                val.starts_with('^')
+                    && val.len() > 1
+                    && val[1..].chars().next().unwrap().is_ascii_digit(),
                 "{pkg_rel}: {name} = {val:?} — must be a `^X.Y.Z` form from the resolver"
             );
             // Sanity: the value must not be a Jinja expression that failed
             // to render (a missing `bakery.versions.X` lookup renders to
             // empty / "undefined" in minijinja unless `default(...)` is used).
-            assert!(!val.contains('{') && !val.contains('}'), "{pkg_rel}: {name} = {val:?} — Jinja did not render");
+            assert!(
+                !val.contains('{') && !val.contains('}'),
+                "{pkg_rel}: {name} = {val:?} — Jinja did not render"
+            );
         }
     }
 
     // React Full
     let (_tmp, r) = render_recipe(&react_recipe());
-    assert_versions_match_resolver(&r, "frontend/package.json", &[
-        "react", "react-dom", "react-router", "@radix-ui/themes",
-        "@radix-ui/colors", "@tanstack/react-query", "zod",
-        "vite", "vitest", "@vitejs/plugin-react", "@vitest/coverage-v8",
-        "eslint", "typescript",
-    ]);
+    assert_versions_match_resolver(
+        &r,
+        "frontend/package.json",
+        &[
+            "react",
+            "react-dom",
+            "react-router",
+            "@radix-ui/themes",
+            "@radix-ui/colors",
+            "@tanstack/react-query",
+            "zod",
+            "vite",
+            "vitest",
+            "@vitejs/plugin-react",
+            "@vitest/coverage-v8",
+            "eslint",
+            "typescript",
+        ],
+    );
 
     // Nuxt Full
     let (_tmp, r) = render_recipe(&nuxt_full_recipe());
-    assert_versions_match_resolver(&r, "frontend/package.json", &[
-        "nuxt", "vue", "vue-router", "pinia", "@pinia/nuxt",
-        "tailwindcss", "@tailwindcss/vite", "@vueuse/nuxt",
-        "vitest", "@vitest/coverage-v8", "@nuxt/test-utils",
-    ]);
+    assert_versions_match_resolver(
+        &r,
+        "frontend/package.json",
+        &[
+            "nuxt",
+            "vue",
+            "vue-router",
+            "pinia",
+            "@pinia/nuxt",
+            "tailwindcss",
+            "@tailwindcss/vite",
+            "@vueuse/nuxt",
+            "vitest",
+            "@vitest/coverage-v8",
+            "@nuxt/test-utils",
+        ],
+    );
 
     // Vue Full
     let (_tmp, r) = render_recipe(&vue_full_recipe());
-    assert_versions_match_resolver(&r, "frontend/package.json", &[
-        "vue", "vue-router", "pinia", "@vueuse/core",
-        "vite", "vitest", "@vitejs/plugin-vue", "tailwindcss",
-    ]);
+    assert_versions_match_resolver(
+        &r,
+        "frontend/package.json",
+        &[
+            "vue",
+            "vue-router",
+            "pinia",
+            "@vueuse/core",
+            "vite",
+            "vitest",
+            "@vitejs/plugin-vue",
+            "tailwindcss",
+        ],
+    );
 
     // Next Full
     let (_tmp, r) = render_recipe(&next_full_recipe());
-    assert_versions_match_resolver(&r, "frontend/package.json", &[
-        "next", "react", "react-dom", "@radix-ui/themes",
-        "@tanstack/react-query", "zod",
-        "vitest", "@vitest/coverage-v8", "eslint-config-next",
-    ]);
+    assert_versions_match_resolver(
+        &r,
+        "frontend/package.json",
+        &[
+            "next",
+            "react",
+            "react-dom",
+            "@radix-ui/themes",
+            "@tanstack/react-query",
+            "zod",
+            "vitest",
+            "@vitest/coverage-v8",
+            "eslint-config-next",
+        ],
+    );
 
     // HTMX + Tailwind root package.json (no `frontend/` dir — Tailwind CLI
     // builds static/css/app.compiled.css). This template was missed by the
@@ -1781,9 +1994,7 @@ fn frontend_package_json_versions_come_from_resolver_not_literals() {
     htmx.frontend = django_bakery_engine::Frontend::HtmxAlpine;
     htmx.css_framework = django_bakery_engine::CssFramework::Tailwind;
     let (_tmp, r) = render_recipe(&htmx);
-    assert_versions_match_resolver(&r, "package.json", &[
-        "tailwindcss", "@tailwindcss/cli",
-    ]);
+    assert_versions_match_resolver(&r, "package.json", &["tailwindcss", "@tailwindcss/cli"]);
 }
 
 #[test]
@@ -1801,7 +2012,10 @@ fn ci_workflow_absent_when_provider_is_none() {
 fn csp_connect_src_extended_for_spa_origins() {
     let (_tmp, root) = render_recipe(&react_recipe());
     let body = read(&root, "config/settings/base.py");
-    assert!(body.contains("http://localhost:5173"), "CSP/CORS must include the SPA dev origin");
+    assert!(
+        body.contains("http://localhost:5173"),
+        "CSP/CORS must include the SPA dev origin"
+    );
     assert!(
         body.contains("CSP_CONNECT_SRC = (\"'self'\", \"http://localhost:5173\")"),
         "CSP_CONNECT_SRC must include the SPA origin"
@@ -1816,19 +2030,37 @@ fn csp_connect_src_extended_for_spa_origins() {
 fn frontend_compose_service_added_for_spa() {
     let (_tmp, root) = render_recipe(&react_recipe());
     let body = read(&root, "compose.local.yml");
-    assert!(body.contains("frontend:"), "frontend service must be in compose.local.yml");
-    assert!(body.contains("node:24-alpine"), "Node 24+ alpine image expected");
-    assert!(body.contains("\"5173:5173\""), "Vite dev port 5173 must be exposed");
+    assert!(
+        body.contains("frontend:"),
+        "frontend service must be in compose.local.yml"
+    );
+    assert!(
+        body.contains("node:24-alpine"),
+        "Node 24+ alpine image expected"
+    );
+    assert!(
+        body.contains("\"5173:5173\""),
+        "Vite dev port 5173 must be exposed"
+    );
 }
 
 #[test]
 fn react_auth_client_carries_security_invariants() {
     let (_tmp, root) = render_recipe(&react_recipe());
     let body = read(&root, "frontend/src/auth/client.ts");
-    assert!(body.contains("credentials: \"include\""), "every fetch must send credentials");
-    assert!(body.contains("X-CSRFToken"), "auth client must forward CSRF header");
+    assert!(
+        body.contains("credentials: \"include\""),
+        "every fetch must send credentials"
+    );
+    assert!(
+        body.contains("X-CSRFToken"),
+        "auth client must forward CSRF header"
+    );
     assert!(body.contains("mfa_required"), "MFA branch must be wired");
-    assert!(body.contains("email_verification_required"), "verify-email branch must be wired");
+    assert!(
+        body.contains("email_verification_required"),
+        "verify-email branch must be wired"
+    );
     // Reject any actual localStorage / sessionStorage CALL — a comment mentioning the
     // anti-pattern is fine (and present, deliberately).
     for forbidden in [

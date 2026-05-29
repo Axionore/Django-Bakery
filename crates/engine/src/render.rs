@@ -378,9 +378,7 @@ fn strip_jinja_ext(name: &str) -> String {
 /// Any line whose entire trimmed content is `__SKIP__` is removed from the rendered output —
 /// allows templates to insert sentinels mid-file without leaving stray markers behind.
 fn strip_skip_lines(rendered: &str) -> String {
-    static_skip_re()
-        .replace_all(rendered, "")
-        .to_string()
+    static_skip_re().replace_all(rendered, "").to_string()
 }
 
 fn static_skip_re() -> &'static Regex {
@@ -424,7 +422,9 @@ mod path_guard_tests {
         // `.` doesn't make an in-root path look like an escape.
         let root = Path::new("./awesomeapp");
         assert!(guard_path_within_root(Path::new("./awesomeapp/LICENSE"), root).is_ok());
-        assert!(guard_path_within_root(Path::new("./awesomeapp/config/settings/base.py"), root).is_ok());
+        assert!(
+            guard_path_within_root(Path::new("./awesomeapp/config/settings/base.py"), root).is_ok()
+        );
         assert!(guard_path_within_root(Path::new("awesomeapp/LICENSE"), root).is_ok());
     }
 

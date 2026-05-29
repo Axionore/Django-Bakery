@@ -173,8 +173,14 @@ fn init_hg(project_root: &Path) {
         warn!("hg not on PATH; skipping VCS init");
         return;
     }
-    run_and_warn("hg init", Command::new("hg").arg("init").current_dir(project_root));
-    run_and_warn("hg add", Command::new("hg").arg("add").current_dir(project_root));
+    run_and_warn(
+        "hg init",
+        Command::new("hg").arg("init").current_dir(project_root),
+    );
+    run_and_warn(
+        "hg add",
+        Command::new("hg").arg("add").current_dir(project_root),
+    );
     run_and_warn(
         "hg commit",
         Command::new("hg")
@@ -206,7 +212,9 @@ pub fn bootstrap(project_root: &Path, recipe: &Recipe) -> Result<()> {
         if frontend_dir.exists() {
             run_status_and_warn(
                 "pnpm install",
-                Command::new("pnpm").arg("install").current_dir(&frontend_dir),
+                Command::new("pnpm")
+                    .arg("install")
+                    .current_dir(&frontend_dir),
             );
         }
     }

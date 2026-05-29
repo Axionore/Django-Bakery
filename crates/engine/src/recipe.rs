@@ -145,12 +145,23 @@ impl Recipe {
         }
     }
 
-    pub fn is_postgres(&self) -> bool { matches!(self.relational_db, RelationalDb::Postgres) }
-    pub fn is_sqlite(&self) -> bool { matches!(self.relational_db, RelationalDb::Sqlite) }
-    pub fn is_mysql(&self) -> bool { matches!(self.relational_db, RelationalDb::Mysql) }
-    pub fn is_mariadb(&self) -> bool { matches!(self.relational_db, RelationalDb::Mariadb) }
+    pub fn is_postgres(&self) -> bool {
+        matches!(self.relational_db, RelationalDb::Postgres)
+    }
+    pub fn is_sqlite(&self) -> bool {
+        matches!(self.relational_db, RelationalDb::Sqlite)
+    }
+    pub fn is_mysql(&self) -> bool {
+        matches!(self.relational_db, RelationalDb::Mysql)
+    }
+    pub fn is_mariadb(&self) -> bool {
+        matches!(self.relational_db, RelationalDb::Mariadb)
+    }
     pub fn is_mysqlish(&self) -> bool {
-        matches!(self.relational_db, RelationalDb::Mysql | RelationalDb::Mariadb)
+        matches!(
+            self.relational_db,
+            RelationalDb::Mysql | RelationalDb::Mariadb
+        )
     }
 
     /// Validates the recipe semantics beyond what serde checks (slug shape, allowed combos).
@@ -167,7 +178,9 @@ impl Recipe {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_')
         {
-            return Err("project_slug may only contain ASCII letters, digits, and underscores".into());
+            return Err(
+                "project_slug may only contain ASCII letters, digits, and underscores".into(),
+            );
         }
         if !self.author_email.contains('@') {
             return Err("author_email must contain '@'".into());
@@ -175,7 +188,8 @@ impl Recipe {
         if self.multi_tenant && !self.is_postgres() {
             return Err(
                 "multi_tenant requires relational_db = 'postgres' (django-tenants is PG-only — \
-                 it uses native Postgres schemas for tenant isolation)".into(),
+                 it uses native Postgres schemas for tenant isolation)"
+                    .into(),
             );
         }
         match self.frontend {
@@ -232,8 +246,15 @@ str_enum! {
 }
 
 impl PythonVersion {
-    pub fn dotted(&self) -> &'static str { self.as_str() }
-    pub fn short(&self) -> &'static str { match self { Self::Py314 => "314", Self::Py313 => "313" } }
+    pub fn dotted(&self) -> &'static str {
+        self.as_str()
+    }
+    pub fn short(&self) -> &'static str {
+        match self {
+            Self::Py314 => "314",
+            Self::Py313 => "313",
+        }
+    }
 }
 
 str_enum! {
@@ -410,7 +431,9 @@ mod tests {
 
     #[test]
     fn defaults_are_valid() {
-        Recipe::defaults().validate().expect("defaults must validate");
+        Recipe::defaults()
+            .validate()
+            .expect("defaults must validate");
     }
 
     #[test]

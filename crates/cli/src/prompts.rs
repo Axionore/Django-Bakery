@@ -9,8 +9,8 @@ use django_bakery_engine::{
     ProdEmail, RadixFlavor, Recipe, RelationalDb, Storage, TypeChecker, VersionControl, secret_key,
 };
 use heck::ToSnakeCase;
-use inquire::{Confirm, Select, Text};
 use inquire::validator::Validation;
+use inquire::{Confirm, Select, Text};
 
 /// Build a Recipe by walking the user through grouped prompts.
 pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
@@ -32,13 +32,21 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
     let slug_default = project_name.to_snake_case();
     let project_slug = Text::new("Project slug")
         .with_default(&slug_default)
-        .with_help_message("Python package name; ASCII letters, digits, underscore; starts with letter or _")
+        .with_help_message(
+            "Python package name; ASCII letters, digits, underscore; starts with letter or _",
+        )
         .with_validator(|s: &str| {
             let first = s.chars().next();
             let valid = !s.is_empty()
-                && first.map(|c| c.is_ascii_alphabetic() || c == '_').unwrap_or(false)
+                && first
+                    .map(|c| c.is_ascii_alphabetic() || c == '_')
+                    .unwrap_or(false)
                 && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
-            Ok(if valid { Validation::Valid } else { Validation::Invalid("invalid slug".into()) })
+            Ok(if valid {
+                Validation::Valid
+            } else {
+                Validation::Invalid("invalid slug".into())
+            })
         })
         .prompt()?;
 
@@ -72,61 +80,40 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
 
     stage(2);
 
-    let python_version = pick(
-        "Python version",
-        py_options(),
-        defaults.python_version,
-    )?;
-    let django_version = pick(
-        "Django version",
-        django_options(),
-        defaults.django_version,
-    )?;
-    let mode = pick(
-        "Primary mode",
-        mode_options(),
-        defaults.mode,
-    )?;
+    let python_version = pick("Python version", py_options(), defaults.python_version)?;
+    let django_version = pick("Django version", django_options(), defaults.django_version)?;
+    let mode = pick("Primary mode", mode_options(), defaults.mode)?;
     let relational_db = pick(
         "Primary relational database",
         db_options(),
         defaults.relational_db,
     )?;
-    let graph_db = pick(
-        "Graph database add-on",
-        graph_options(),
-        defaults.graph_db,
-    )?;
-    let api_layer = pick(
-        "API layer",
-        api_options(),
-        defaults.api_layer,
-    )?;
-    let frontend = pick(
-        "Frontend",
-        frontend_options(),
-        defaults.frontend,
-    )?;
+    let graph_db = pick("Graph database add-on", graph_options(), defaults.graph_db)?;
+    let api_layer = pick("API layer", api_options(), defaults.api_layer)?;
+    let frontend = pick("Frontend", frontend_options(), defaults.frontend)?;
     let is_spa = matches!(
         frontend,
         Frontend::React | Frontend::Nuxt | Frontend::Vue | Frontend::Next
     );
     let frontend_variant = if is_spa {
-        pick("Frontend variant", variant_options(), defaults.frontend_variant)?
+        pick(
+            "Frontend variant",
+            variant_options(),
+            defaults.frontend_variant,
+        )?
     } else {
         FrontendVariant::Full
     };
-    let radix_flavor = if frontend == Frontend::React
-        && matches!(frontend_variant, FrontendVariant::Full)
-    {
-        Some(pick(
-            "Radix flavor",
-            radix_options(),
-            defaults.radix_flavor.unwrap_or(RadixFlavor::Themes),
-        )?)
-    } else {
-        None
-    };
+    let radix_flavor =
+        if frontend == Frontend::React && matches!(frontend_variant, FrontendVariant::Full) {
+            Some(pick(
+                "Radix flavor",
+                radix_options(),
+                defaults.radix_flavor.unwrap_or(RadixFlavor::Themes),
+            )?)
+        } else {
+            None
+        };
     let js_language = if is_spa {
         pick("Language", js_language_options(), defaults.js_language)?
     } else {
@@ -151,11 +138,7 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         .with_default(defaults.use_celery)
         .prompt()?;
     let celery_broker = if use_celery {
-        pick(
-            "Celery broker",
-            broker_options(),
-            defaults.celery_broker,
-        )?
+        pick("Celery broker", broker_options(), defaults.celery_broker)?
     } else {
         defaults.celery_broker
     };
@@ -167,11 +150,7 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         prod_email_options(),
         defaults.prod_email,
     )?;
-    let storage = pick(
-        "Cloud storage backend",
-        storage_options(),
-        defaults.storage,
-    )?;
+    let storage = pick("Cloud storage backend", storage_options(), defaults.storage)?;
     let use_sentry = Confirm::new("Add Sentry?")
         .with_default(defaults.use_sentry)
         .prompt()?;
@@ -192,29 +171,17 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
     } else {
         false
     };
-    let type_checker = pick(
-        "Type checker",
-        typecheck_options(),
-        defaults.type_checker,
-    )?;
+    let type_checker = pick("Type checker", typecheck_options(), defaults.type_checker)?;
     let use_pre_commit = Confirm::new("Add pre-commit hooks (ruff, djlint, mypy, gitleaks)?")
         .with_default(defaults.use_pre_commit)
         .prompt()?;
-    let ci = pick(
-        "CI provider",
-        ci_options(),
-        defaults.ci,
-    )?;
+    let ci = pick("CI provider", ci_options(), defaults.ci)?;
     let container_setup = pick(
         "Container setup",
         container_options(),
         defaults.container_setup,
     )?;
-    let version_control = pick(
-        "Version control",
-        vcs_options(),
-        defaults.version_control,
-    )?;
+    let version_control = pick("Version control", vcs_options(), defaults.version_control)?;
     let timezone = Text::new("Timezone (IANA)")
         .with_default(&defaults.timezone)
         .prompt()?;
@@ -383,11 +350,10 @@ fn pick<T>(prompt: &str, options: Vec<Labeled<T>>, default: T) -> Result<T>
 where
     T: Copy + PartialEq + fmt::Debug,
 {
-    let starting = options
-        .iter()
-        .position(|o| o.value == default)
-        .unwrap_or(0);
-    let chosen = Select::new(prompt, options).with_starting_cursor(starting).prompt()?;
+    let starting = options.iter().position(|o| o.value == default).unwrap_or(0);
+    let chosen = Select::new(prompt, options)
+        .with_starting_cursor(starting)
+        .prompt()?;
     Ok(chosen.value)
 }
 
@@ -409,73 +375,193 @@ impl<T> fmt::Display for Labeled<T> {
 
 // --- option tables -----------------------------------------------------------
 
-use django_bakery_engine::{DjangoVersion, License, PythonVersion, CssFramework, ContainerSetup};
+use django_bakery_engine::{ContainerSetup, CssFramework, DjangoVersion, License, PythonVersion};
 
 fn license_options() -> Vec<Labeled<License>> {
     vec![
-        Labeled { value: License::Mit, label: "MIT", hint: "permissive, widely used" },
-        Labeled { value: License::Apache2, label: "Apache 2.0", hint: "permissive with patent grant" },
-        Labeled { value: License::Bsd3, label: "BSD-3-Clause", hint: "permissive" },
-        Labeled { value: License::Proprietary, label: "Proprietary", hint: "all rights reserved" },
+        Labeled {
+            value: License::Mit,
+            label: "MIT",
+            hint: "permissive, widely used",
+        },
+        Labeled {
+            value: License::Apache2,
+            label: "Apache 2.0",
+            hint: "permissive with patent grant",
+        },
+        Labeled {
+            value: License::Bsd3,
+            label: "BSD-3-Clause",
+            hint: "permissive",
+        },
+        Labeled {
+            value: License::Proprietary,
+            label: "Proprietary",
+            hint: "all rights reserved",
+        },
     ]
 }
 
 fn py_options() -> Vec<Labeled<PythonVersion>> {
     vec![
-        Labeled { value: PythonVersion::Py314, label: "Python 3.14", hint: "default (2026)" },
-        Labeled { value: PythonVersion::Py313, label: "Python 3.13", hint: "for older infra" },
+        Labeled {
+            value: PythonVersion::Py314,
+            label: "Python 3.14",
+            hint: "default (2026)",
+        },
+        Labeled {
+            value: PythonVersion::Py313,
+            label: "Python 3.13",
+            hint: "for older infra",
+        },
     ]
 }
 
 fn django_options() -> Vec<Labeled<DjangoVersion>> {
-    vec![Labeled { value: DjangoVersion::Dj60, label: "Django 6.0", hint: "LTS-track, async ORM" }]
+    vec![Labeled {
+        value: DjangoVersion::Dj60,
+        label: "Django 6.0",
+        hint: "LTS-track, async ORM",
+    }]
 }
 
 fn mode_options() -> Vec<Labeled<Mode>> {
     vec![
-        Labeled { value: Mode::Production, label: "Production", hint: "Postgres + Docker by default" },
-        Labeled { value: Mode::Development, label: "Development", hint: "SQLite by default, fast iteration" },
+        Labeled {
+            value: Mode::Production,
+            label: "Production",
+            hint: "Postgres + Docker by default",
+        },
+        Labeled {
+            value: Mode::Development,
+            label: "Development",
+            hint: "SQLite by default, fast iteration",
+        },
     ]
 }
 
 fn db_options() -> Vec<Labeled<RelationalDb>> {
     vec![
-        Labeled { value: RelationalDb::Postgres, label: "PostgreSQL 18", hint: "recommended" },
-        Labeled { value: RelationalDb::Sqlite, label: "SQLite", hint: "zero-config dev" },
-        Labeled { value: RelationalDb::Mysql, label: "MySQL 8", hint: "Oracle MySQL" },
-        Labeled { value: RelationalDb::Mariadb, label: "MariaDB 11", hint: "MySQL fork" },
+        Labeled {
+            value: RelationalDb::Postgres,
+            label: "PostgreSQL 18",
+            hint: "recommended",
+        },
+        Labeled {
+            value: RelationalDb::Sqlite,
+            label: "SQLite",
+            hint: "zero-config dev",
+        },
+        Labeled {
+            value: RelationalDb::Mysql,
+            label: "MySQL 8",
+            hint: "Oracle MySQL",
+        },
+        Labeled {
+            value: RelationalDb::Mariadb,
+            label: "MariaDB 11",
+            hint: "MySQL fork",
+        },
     ]
 }
 
 fn graph_options() -> Vec<Labeled<GraphDb>> {
     vec![
-        Labeled { value: GraphDb::None, label: "None", hint: "no graph DB" },
-        Labeled { value: GraphDb::Neo4j, label: "Neo4j 5", hint: "Cypher, neomodel" },
-        Labeled { value: GraphDb::Nebula, label: "NebulaGraph", hint: "distributed, nGQL" },
-        Labeled { value: GraphDb::Surreal, label: "SurrealDB", hint: "multi-model" },
-        Labeled { value: GraphDb::Dgraph, label: "Dgraph", hint: "GraphQL+DQL" },
+        Labeled {
+            value: GraphDb::None,
+            label: "None",
+            hint: "no graph DB",
+        },
+        Labeled {
+            value: GraphDb::Neo4j,
+            label: "Neo4j 5",
+            hint: "Cypher, neomodel",
+        },
+        Labeled {
+            value: GraphDb::Nebula,
+            label: "NebulaGraph",
+            hint: "distributed, nGQL",
+        },
+        Labeled {
+            value: GraphDb::Surreal,
+            label: "SurrealDB",
+            hint: "multi-model",
+        },
+        Labeled {
+            value: GraphDb::Dgraph,
+            label: "Dgraph",
+            hint: "GraphQL+DQL",
+        },
     ]
 }
 
 fn api_options() -> Vec<Labeled<ApiLayer>> {
     vec![
-        Labeled { value: ApiLayer::Ninja, label: "Django Ninja", hint: "OpenAPI, async, Pydantic 2" },
-        Labeled { value: ApiLayer::Drf, label: "Django REST Framework", hint: "battle-tested, full-featured" },
-        Labeled { value: ApiLayer::GraphqlStrawberry, label: "GraphQL (Strawberry)", hint: "type-first" },
-        Labeled { value: ApiLayer::GraphqlGraphene, label: "GraphQL (Graphene)", hint: "classic" },
-        Labeled { value: ApiLayer::None, label: "None", hint: "no API layer" },
+        Labeled {
+            value: ApiLayer::Ninja,
+            label: "Django Ninja",
+            hint: "OpenAPI, async, Pydantic 2",
+        },
+        Labeled {
+            value: ApiLayer::Drf,
+            label: "Django REST Framework",
+            hint: "battle-tested, full-featured",
+        },
+        Labeled {
+            value: ApiLayer::GraphqlStrawberry,
+            label: "GraphQL (Strawberry)",
+            hint: "type-first",
+        },
+        Labeled {
+            value: ApiLayer::GraphqlGraphene,
+            label: "GraphQL (Graphene)",
+            hint: "classic",
+        },
+        Labeled {
+            value: ApiLayer::None,
+            label: "None",
+            hint: "no API layer",
+        },
     ]
 }
 
 fn frontend_options() -> Vec<Labeled<Frontend>> {
     vec![
-        Labeled { value: Frontend::HtmxAlpine, label: "HTMX + Alpine.js", hint: "server-rendered, minimal JS" },
-        Labeled { value: Frontend::React, label: "React + Vite", hint: "SPA, optional Radix UI" },
-        Labeled { value: Frontend::Nuxt, label: "Nuxt 4", hint: "Vue + Nitro, SSR" },
-        Labeled { value: Frontend::Vue, label: "Vue 3 + Vite", hint: "SPA, no Nuxt opinions" },
-        Labeled { value: Frontend::Next, label: "Next.js 16", hint: "React + App Router, SSR" },
-        Labeled { value: Frontend::DjangoTemplates, label: "Django templates only", hint: "no JS framework" },
-        Labeled { value: Frontend::None, label: "None (API-only)", hint: "headless backend" },
+        Labeled {
+            value: Frontend::HtmxAlpine,
+            label: "HTMX + Alpine.js",
+            hint: "server-rendered, minimal JS",
+        },
+        Labeled {
+            value: Frontend::React,
+            label: "React + Vite",
+            hint: "SPA, optional Radix UI",
+        },
+        Labeled {
+            value: Frontend::Nuxt,
+            label: "Nuxt 4",
+            hint: "Vue + Nitro, SSR",
+        },
+        Labeled {
+            value: Frontend::Vue,
+            label: "Vue 3 + Vite",
+            hint: "SPA, no Nuxt opinions",
+        },
+        Labeled {
+            value: Frontend::Next,
+            label: "Next.js 16",
+            hint: "React + App Router, SSR",
+        },
+        Labeled {
+            value: Frontend::DjangoTemplates,
+            label: "Django templates only",
+            hint: "no JS framework",
+        },
+        Labeled {
+            value: Frontend::None,
+            label: "None (API-only)",
+            hint: "headless backend",
+        },
     ]
 }
 
@@ -496,89 +582,245 @@ fn variant_options() -> Vec<Labeled<FrontendVariant>> {
 
 fn radix_options() -> Vec<Labeled<RadixFlavor>> {
     vec![
-        Labeled { value: RadixFlavor::Themes, label: "Radix Themes", hint: "pre-styled components" },
-        Labeled { value: RadixFlavor::Primitives, label: "Radix Primitives + Tailwind v4", hint: "headless + custom styles" },
+        Labeled {
+            value: RadixFlavor::Themes,
+            label: "Radix Themes",
+            hint: "pre-styled components",
+        },
+        Labeled {
+            value: RadixFlavor::Primitives,
+            label: "Radix Primitives + Tailwind v4",
+            hint: "headless + custom styles",
+        },
     ]
 }
 
 fn js_language_options() -> Vec<Labeled<JsLanguage>> {
     vec![
-        Labeled { value: JsLanguage::Typescript, label: "TypeScript 6+", hint: "default — strict typing" },
-        Labeled { value: JsLanguage::Javascript, label: "JavaScript (ESM)", hint: "no type checker" },
+        Labeled {
+            value: JsLanguage::Typescript,
+            label: "TypeScript 6+",
+            hint: "default — strict typing",
+        },
+        Labeled {
+            value: JsLanguage::Javascript,
+            label: "JavaScript (ESM)",
+            hint: "no type checker",
+        },
     ]
 }
 
 fn vcs_options() -> Vec<Labeled<VersionControl>> {
     vec![
-        Labeled { value: VersionControl::Git, label: "git", hint: "default; `git init --initial-branch=main`" },
-        Labeled { value: VersionControl::Jj, label: "jj (Jujutsu)", hint: "git-colocated" },
-        Labeled { value: VersionControl::Hg, label: "Mercurial (hg)", hint: "" },
-        Labeled { value: VersionControl::None, label: "None", hint: "no VCS init" },
+        Labeled {
+            value: VersionControl::Git,
+            label: "git",
+            hint: "default; `git init --initial-branch=main`",
+        },
+        Labeled {
+            value: VersionControl::Jj,
+            label: "jj (Jujutsu)",
+            hint: "git-colocated",
+        },
+        Labeled {
+            value: VersionControl::Hg,
+            label: "Mercurial (hg)",
+            hint: "",
+        },
+        Labeled {
+            value: VersionControl::None,
+            label: "None",
+            hint: "no VCS init",
+        },
     ]
 }
 
 fn css_options() -> Vec<Labeled<CssFramework>> {
     vec![
-        Labeled { value: CssFramework::Tailwind, label: "Tailwind v4", hint: "CSS-first, @theme tokens" },
-        Labeled { value: CssFramework::Bootstrap, label: "Bootstrap 5", hint: "classic, batteries-included" },
-        Labeled { value: CssFramework::None, label: "None", hint: "bring your own CSS" },
+        Labeled {
+            value: CssFramework::Tailwind,
+            label: "Tailwind v4",
+            hint: "CSS-first, @theme tokens",
+        },
+        Labeled {
+            value: CssFramework::Bootstrap,
+            label: "Bootstrap 5",
+            hint: "classic, batteries-included",
+        },
+        Labeled {
+            value: CssFramework::None,
+            label: "None",
+            hint: "bring your own CSS",
+        },
     ]
 }
 
 fn broker_options() -> Vec<Labeled<CeleryBroker>> {
     vec![
-        Labeled { value: CeleryBroker::Redis, label: "Redis", hint: "fast, simple" },
-        Labeled { value: CeleryBroker::Rabbitmq, label: "RabbitMQ", hint: "robust messaging" },
+        Labeled {
+            value: CeleryBroker::Redis,
+            label: "Redis",
+            hint: "fast, simple",
+        },
+        Labeled {
+            value: CeleryBroker::Rabbitmq,
+            label: "RabbitMQ",
+            hint: "robust messaging",
+        },
     ]
 }
 
 fn prod_email_options() -> Vec<Labeled<ProdEmail>> {
     vec![
-        Labeled { value: ProdEmail::AnymailMailgun,   label: "Anymail + Mailgun",   hint: "" },
-        Labeled { value: ProdEmail::AnymailSes,       label: "Anymail + AWS SES",   hint: "" },
-        Labeled { value: ProdEmail::AnymailSendgrid,  label: "Anymail + SendGrid",  hint: "" },
-        Labeled { value: ProdEmail::AnymailMailjet,   label: "Anymail + Mailjet",   hint: "" },
-        Labeled { value: ProdEmail::AnymailMandrill,  label: "Anymail + Mandrill",  hint: "" },
-        Labeled { value: ProdEmail::AnymailPostmark,  label: "Anymail + Postmark",  hint: "" },
-        Labeled { value: ProdEmail::AnymailBrevo,     label: "Anymail + Brevo",     hint: "ex-Sendinblue" },
-        Labeled { value: ProdEmail::AnymailSparkpost, label: "Anymail + SparkPost", hint: "" },
-        Labeled { value: ProdEmail::Smtp,             label: "SMTP",                hint: "any provider" },
-        Labeled { value: ProdEmail::Console,          label: "Console (dev only)",  hint: "print to stdout" },
+        Labeled {
+            value: ProdEmail::AnymailMailgun,
+            label: "Anymail + Mailgun",
+            hint: "",
+        },
+        Labeled {
+            value: ProdEmail::AnymailSes,
+            label: "Anymail + AWS SES",
+            hint: "",
+        },
+        Labeled {
+            value: ProdEmail::AnymailSendgrid,
+            label: "Anymail + SendGrid",
+            hint: "",
+        },
+        Labeled {
+            value: ProdEmail::AnymailMailjet,
+            label: "Anymail + Mailjet",
+            hint: "",
+        },
+        Labeled {
+            value: ProdEmail::AnymailMandrill,
+            label: "Anymail + Mandrill",
+            hint: "",
+        },
+        Labeled {
+            value: ProdEmail::AnymailPostmark,
+            label: "Anymail + Postmark",
+            hint: "",
+        },
+        Labeled {
+            value: ProdEmail::AnymailBrevo,
+            label: "Anymail + Brevo",
+            hint: "ex-Sendinblue",
+        },
+        Labeled {
+            value: ProdEmail::AnymailSparkpost,
+            label: "Anymail + SparkPost",
+            hint: "",
+        },
+        Labeled {
+            value: ProdEmail::Smtp,
+            label: "SMTP",
+            hint: "any provider",
+        },
+        Labeled {
+            value: ProdEmail::Console,
+            label: "Console (dev only)",
+            hint: "print to stdout",
+        },
     ]
 }
 
 fn storage_options() -> Vec<Labeled<Storage>> {
     vec![
-        Labeled { value: Storage::AwsS3, label: "AWS S3", hint: "" },
-        Labeled { value: Storage::Gcs, label: "Google Cloud Storage", hint: "" },
-        Labeled { value: Storage::AzureBlob, label: "Azure Blob Storage", hint: "" },
-        Labeled { value: Storage::Whitenoise, label: "WhiteNoise (static only)", hint: "no media uploads" },
-        Labeled { value: Storage::Nginx, label: "nginx-served media", hint: "self-hosted" },
-        Labeled { value: Storage::None, label: "None", hint: "Django defaults / local filesystem" },
+        Labeled {
+            value: Storage::AwsS3,
+            label: "AWS S3",
+            hint: "",
+        },
+        Labeled {
+            value: Storage::Gcs,
+            label: "Google Cloud Storage",
+            hint: "",
+        },
+        Labeled {
+            value: Storage::AzureBlob,
+            label: "Azure Blob Storage",
+            hint: "",
+        },
+        Labeled {
+            value: Storage::Whitenoise,
+            label: "WhiteNoise (static only)",
+            hint: "no media uploads",
+        },
+        Labeled {
+            value: Storage::Nginx,
+            label: "nginx-served media",
+            hint: "self-hosted",
+        },
+        Labeled {
+            value: Storage::None,
+            label: "None",
+            hint: "Django defaults / local filesystem",
+        },
     ]
 }
 
 fn typecheck_options() -> Vec<Labeled<TypeChecker>> {
     vec![
-        Labeled { value: TypeChecker::Mypy, label: "mypy", hint: "with django-stubs" },
-        Labeled { value: TypeChecker::Pyright, label: "pyright", hint: "Microsoft's, faster" },
-        Labeled { value: TypeChecker::None, label: "None", hint: "" },
+        Labeled {
+            value: TypeChecker::Mypy,
+            label: "mypy",
+            hint: "with django-stubs",
+        },
+        Labeled {
+            value: TypeChecker::Pyright,
+            label: "pyright",
+            hint: "Microsoft's, faster",
+        },
+        Labeled {
+            value: TypeChecker::None,
+            label: "None",
+            hint: "",
+        },
     ]
 }
 
 fn ci_options() -> Vec<Labeled<CiProvider>> {
     vec![
-        Labeled { value: CiProvider::GitHubActions, label: "GitHub Actions", hint: "default" },
-        Labeled { value: CiProvider::GitLabCi, label: "GitLab CI", hint: "" },
-        Labeled { value: CiProvider::Both, label: "Both (GitHub + GitLab)", hint: "" },
-        Labeled { value: CiProvider::None, label: "None", hint: "" },
+        Labeled {
+            value: CiProvider::GitHubActions,
+            label: "GitHub Actions",
+            hint: "default",
+        },
+        Labeled {
+            value: CiProvider::GitLabCi,
+            label: "GitLab CI",
+            hint: "",
+        },
+        Labeled {
+            value: CiProvider::Both,
+            label: "Both (GitHub + GitLab)",
+            hint: "",
+        },
+        Labeled {
+            value: CiProvider::None,
+            label: "None",
+            hint: "",
+        },
     ]
 }
 
 fn container_options() -> Vec<Labeled<ContainerSetup>> {
     vec![
-        Labeled { value: ContainerSetup::ComposeTraefik, label: "Docker Compose + Traefik + Let's Encrypt", hint: "full prod" },
-        Labeled { value: ContainerSetup::ComposeOnly, label: "Docker Compose (no Traefik)", hint: "behind your own LB" },
-        Labeled { value: ContainerSetup::None, label: "None", hint: "no containers" },
+        Labeled {
+            value: ContainerSetup::ComposeTraefik,
+            label: "Docker Compose + Traefik + Let's Encrypt",
+            hint: "full prod",
+        },
+        Labeled {
+            value: ContainerSetup::ComposeOnly,
+            label: "Docker Compose (no Traefik)",
+            hint: "behind your own LB",
+        },
+        Labeled {
+            value: ContainerSetup::None,
+            label: "None",
+            hint: "no containers",
+        },
     ]
 }

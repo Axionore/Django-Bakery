@@ -66,7 +66,10 @@ impl Context {
             "project_camel".into(),
             json!(r.project_slug.to_upper_camel_case()),
         );
-        m.insert("project_kebab".into(), json!(r.project_slug.to_kebab_case()));
+        m.insert(
+            "project_kebab".into(),
+            json!(r.project_slug.to_kebab_case()),
+        );
         m.insert(
             "project_shouty".into(),
             json!(r.project_slug.to_shouty_snake_case()),
@@ -98,7 +101,10 @@ impl Context {
         m.insert("js_language".into(), json!(r.js_language.as_str()));
         m.insert(
             "is_typescript".into(),
-            json!(matches!(r.js_language, crate::recipe::JsLanguage::Typescript)),
+            json!(matches!(
+                r.js_language,
+                crate::recipe::JsLanguage::Typescript
+            )),
         );
         m.insert("js_testing".into(), json!(r.js_testing));
         m.insert("css_framework".into(), json!(r.css_framework.as_str()));
@@ -124,11 +130,17 @@ impl Context {
         // matcher expression in multiple places.
         m.insert(
             "is_postgres".into(),
-            json!(matches!(r.relational_db, crate::recipe::RelationalDb::Postgres)),
+            json!(matches!(
+                r.relational_db,
+                crate::recipe::RelationalDb::Postgres
+            )),
         );
         m.insert(
             "is_sqlite".into(),
-            json!(matches!(r.relational_db, crate::recipe::RelationalDb::Sqlite)),
+            json!(matches!(
+                r.relational_db,
+                crate::recipe::RelationalDb::Sqlite
+            )),
         );
         m.insert(
             "is_mysqlish".into(),
@@ -139,11 +151,17 @@ impl Context {
         );
         m.insert(
             "is_mysql".into(),
-            json!(matches!(r.relational_db, crate::recipe::RelationalDb::Mysql)),
+            json!(matches!(
+                r.relational_db,
+                crate::recipe::RelationalDb::Mysql
+            )),
         );
         m.insert(
             "is_mariadb".into(),
-            json!(matches!(r.relational_db, crate::recipe::RelationalDb::Mariadb)),
+            json!(matches!(
+                r.relational_db,
+                crate::recipe::RelationalDb::Mariadb
+            )),
         );
         m.insert(
             "has_api".into(),
@@ -197,11 +215,17 @@ impl Context {
         );
         m.insert(
             "is_full_template".into(),
-            json!(matches!(r.frontend_variant, crate::recipe::FrontendVariant::Full)),
+            json!(matches!(
+                r.frontend_variant,
+                crate::recipe::FrontendVariant::Full
+            )),
         );
         m.insert(
             "is_skeleton".into(),
-            json!(matches!(r.frontend_variant, crate::recipe::FrontendVariant::Skeleton)),
+            json!(matches!(
+                r.frontend_variant,
+                crate::recipe::FrontendVariant::Skeleton
+            )),
         );
         m
     }
@@ -221,7 +245,10 @@ impl Context {
         m.insert("db_password".into(), db_password.clone());
         m.insert("postgres_password".into(), db_password);
 
-        m.insert("redis_password".into(), json!(resolve_or_gen(&r.redis_password, 32)));
+        m.insert(
+            "redis_password".into(),
+            json!(resolve_or_gen(&r.redis_password, 32)),
+        );
         m.insert("traefik_basic_auth".into(), json!(secret_key(32)));
 
         // Initial Django superuser, seeded idempotently on first boot. Email falls back to
@@ -288,9 +315,7 @@ fn current_year() -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::recipe::{
-        ApiLayer, ContainerSetup, Frontend, RelationalDb,
-    };
+    use crate::recipe::{ApiLayer, ContainerSetup, Frontend, RelationalDb};
 
     #[test]
     fn recipe_fields_exposes_computed_booleans() {
@@ -301,7 +326,10 @@ mod tests {
         assert_eq!(block.get("has_api"), Some(&serde_json::json!(true)));
         assert_eq!(block.get("wants_docker"), Some(&serde_json::json!(true)));
         assert_eq!(block.get("wants_traefik"), Some(&serde_json::json!(true)));
-        assert_eq!(block.get("has_frontend_spa"), Some(&serde_json::json!(false)));
+        assert_eq!(
+            block.get("has_frontend_spa"),
+            Some(&serde_json::json!(false))
+        );
     }
 
     #[test]
@@ -323,9 +351,15 @@ mod tests {
     fn engine_extras_include_secret_key_and_year() {
         let r = Recipe::defaults();
         let block = Context::engine_extras(&r);
-        let key = block.get("django_secret_key").and_then(|v| v.as_str()).unwrap();
+        let key = block
+            .get("django_secret_key")
+            .and_then(|v| v.as_str())
+            .unwrap();
         assert_eq!(key.len(), 50);
-        let pg = block.get("postgres_password").and_then(|v| v.as_str()).unwrap();
+        let pg = block
+            .get("postgres_password")
+            .and_then(|v| v.as_str())
+            .unwrap();
         assert_eq!(pg.len(), 40);
         let year = block.get("year").and_then(|v| v.as_i64()).unwrap();
         assert!(year >= 2024 && year <= 2100, "year sanity check: {year}");
@@ -372,7 +406,9 @@ mod tests {
     fn secret_key_has_no_shell_special_chars() {
         // Belt and braces: this set must NEVER appear regardless of length.
         let key = secret_key(256);
-        for forbidden in ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '"', '\'', '`', '\\'] {
+        for forbidden in [
+            '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '"', '\'', '`', '\\',
+        ] {
             assert!(
                 !key.contains(forbidden),
                 "secret_key {key:?} contains forbidden char {forbidden:?}"
@@ -392,8 +428,7 @@ pub fn secret_key(len: usize) -> String {
     // above Django's 128-bit minimum and the OWASP ASVS L2 threshold. Critically, no
     // characters with special meaning in shells or `.env` files (`$`, `!`, `(`, `*`, `&`,
     // `#`, quotes) — secrets written into env files must round-trip through any parser.
-    const ALPHABET: &[u8] =
-        b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
+    const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
     let mut rng = rand_chacha::ChaCha20Rng::from_rng(&mut rand::rng());
     let mut out = String::with_capacity(len);
     for _ in 0..len {
