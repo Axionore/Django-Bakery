@@ -312,6 +312,27 @@ fn current_year() -> i32 {
     1970 + (days as f64 / 365.2425) as i32
 }
 
+/// Generate a Django-compatible secret key of `len` URL-safe characters.
+///
+/// Uses a ChaCha20 CSPRNG seeded from OS entropy (via the OS-seeded thread RNG —
+/// rand 0.10 removed the direct `from_os_rng` constructor). Output is suitable for
+/// `SECRET_KEY`, `POSTGRES_PASSWORD`, etc. — never logged, only written to `.env*` files
+/// inside the generated project (which is `.gitignore`'d by default).
+pub fn secret_key(len: usize) -> String {
+    // URL-safe alphabet only (64 chars). At 50 chars that's ~300 bits of entropy — well
+    // above Django's 128-bit minimum and the OWASP ASVS L2 threshold. Critically, no
+    // characters with special meaning in shells or `.env` files (`$`, `!`, `(`, `*`, `&`,
+    // `#`, quotes) — secrets written into env files must round-trip through any parser.
+    const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
+    let mut rng = rand_chacha::ChaCha20Rng::from_rng(&mut rand::rng());
+    let mut out = String::with_capacity(len);
+    for _ in 0..len {
+        let b = ALPHABET.choose(&mut rng).copied().unwrap_or(b'x');
+        out.push(b as char);
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -362,7 +383,7 @@ mod tests {
             .unwrap();
         assert_eq!(pg.len(), 40);
         let year = block.get("year").and_then(|v| v.as_i64()).unwrap();
-        assert!(year >= 2024 && year <= 2100, "year sanity check: {year}");
+        assert!((2024..=2100).contains(&year), "year sanity check: {year}");
     }
 
     #[test]
@@ -415,25 +436,4 @@ mod tests {
             );
         }
     }
-}
-
-/// Generate a Django-compatible secret key of `len` URL-safe characters.
-///
-/// Uses a ChaCha20 CSPRNG seeded from OS entropy (via the OS-seeded thread RNG —
-/// rand 0.10 removed the direct `from_os_rng` constructor). Output is suitable for
-/// `SECRET_KEY`, `POSTGRES_PASSWORD`, etc. — never logged, only written to `.env*` files
-/// inside the generated project (which is `.gitignore`'d by default).
-pub fn secret_key(len: usize) -> String {
-    // URL-safe alphabet only (64 chars). At 50 chars that's ~300 bits of entropy — well
-    // above Django's 128-bit minimum and the OWASP ASVS L2 threshold. Critically, no
-    // characters with special meaning in shells or `.env` files (`$`, `!`, `(`, `*`, `&`,
-    // `#`, quotes) — secrets written into env files must round-trip through any parser.
-    const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
-    let mut rng = rand_chacha::ChaCha20Rng::from_rng(&mut rand::rng());
-    let mut out = String::with_capacity(len);
-    for _ in 0..len {
-        let b = ALPHABET.choose(&mut rng).copied().unwrap_or(b'x');
-        out.push(b as char);
-    }
-    out
 }

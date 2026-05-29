@@ -186,11 +186,7 @@ fn cmd_bake(args: BakeArgs) -> Result<()> {
 fn cmd_validate(path: PathBuf) -> Result<()> {
     let recipe = recipe_io::load(&path)?;
     recipe.validate().map_err(|e| anyhow::anyhow!(e))?;
-    println!(
-        "{} {}",
-        console::style("✓").green().bold(),
-        "recipe is valid"
-    );
+    println!("{} recipe is valid", console::style("✓").green().bold());
     Ok(())
 }
 
