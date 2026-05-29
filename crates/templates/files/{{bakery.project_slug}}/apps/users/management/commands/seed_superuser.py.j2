@@ -1,0 +1,40 @@
+"""Idempotently create the initial Django superuser from environment variables.
+
+Run on first boot (the compose start script calls it after `migrate`) and safe to
+re-run: if a user with ``DJANGO_SUPERUSER_EMAIL`` already exists it is left untouched.
+Reads:
+    DJANGO_SUPERUSER_EMAIL     (required)
+    DJANGO_SUPERUSER_PASSWORD  (required)
+Both are missing → the command no-ops with a notice, so it never breaks boot.
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Any
+
+from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
+
+
+class Command(BaseCommand):
+    help = "Create the initial superuser from DJANGO_SUPERUSER_* env vars (idempotent)."
+
+    def handle(self, *args: Any, **options: Any) -> None:
+        email = os.environ.get("DJANGO_SUPERUSER_EMAIL", "").strip()
+        password = os.environ.get("DJANGO_SUPERUSER_PASSWORD", "")
+
+        if not email or not password:
+            self.stdout.write(
+                "DJANGO_SUPERUSER_EMAIL / DJANGO_SUPERUSER_PASSWORD not set — "
+                "skipping superuser seed."
+            )
+            return
+
+        user_model = get_user_model()
+        if user_model.objects.filter(email=email).exists():
+            self.stdout.write(f"Superuser {email} already exists — leaving it untouched.")
+            return
+
+        user_model.objects.create_superuser(email=email, password=password)
+        self.stdout.write(self.style.SUCCESS(f"Created superuser {email}."))

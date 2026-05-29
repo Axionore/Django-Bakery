@@ -12,10 +12,14 @@
 DJANGO_SETTINGS_MODULE=config.settings.local
 DJANGO_SECRET_KEY=<GENERATE-50-char-secret>
 DJANGO_DEBUG=True
-DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+DJANGO_ALLOWED_HOSTS={{ bakery.allowed_hosts }}
 DJANGO_DEFAULT_FROM_EMAIL=noreply@{{ bakery.domain_name }}
 # Defends against admin-URL scanners. Rotate by editing this value.
 DJANGO_ADMIN_URL=admin-{{ bakery.admin_url_suffix }}/
+
+# --- Initial superuser (seeded idempotently on first boot via `manage.py seed_superuser`) ---
+DJANGO_SUPERUSER_EMAIL={{ bakery.superuser_email }}
+DJANGO_SUPERUSER_PASSWORD=<GENERATE-superuser-password>
 
 # --- Database ---
 {%- if bakery.is_postgres %}

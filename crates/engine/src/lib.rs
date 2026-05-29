@@ -12,7 +12,7 @@ pub mod recipe;
 pub mod render;
 pub mod versions;
 
-pub use context::Context;
+pub use context::{Context, secret_key};
 pub use error::{Error, Result};
 pub use recipe::{
     ApiLayer, CeleryBroker, CiProvider, ContainerSetup, CssFramework, DjangoVersion, Frontend,

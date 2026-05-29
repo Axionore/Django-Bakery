@@ -5,8 +5,8 @@ use std::fmt;
 
 use anyhow::Result;
 use django_bakery_engine::{
-    ApiLayer, CiProvider, Frontend, FrontendVariant, GraphDb, JsLanguage, Mode, ProdEmail,
-    RadixFlavor, Recipe, RelationalDb, Storage, TypeChecker, VersionControl,
+    ApiLayer, CeleryBroker, CiProvider, Frontend, FrontendVariant, GraphDb, JsLanguage, Mode,
+    ProdEmail, RadixFlavor, Recipe, RelationalDb, Storage, TypeChecker, VersionControl, secret_key,
 };
 use heck::ToSnakeCase;
 use inquire::{Confirm, Select, Text};
@@ -15,7 +15,7 @@ use inquire::validator::Validation;
 /// Build a Recipe by walking the user through grouped prompts.
 pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
     let defaults = preset.cloned().unwrap_or_else(Recipe::defaults);
-    section("Project basics");
+    stage(1);
 
     let project_name = Text::new("Project name")
         .with_default(&defaults.project_name)
@@ -70,7 +70,7 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         .with_default(defaults.open_source)
         .prompt()?;
 
-    section("Stack");
+    stage(2);
 
     let python_version = pick(
         "Python version",
@@ -145,7 +145,7 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         defaults.css_framework,
     )?;
 
-    section("Production add-ons");
+    stage(3);
 
     let use_celery = Confirm::new("Add Celery (+ Beat + Flower)?")
         .with_default(defaults.use_celery)
@@ -219,6 +219,61 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         .with_default(&defaults.timezone)
         .prompt()?;
 
+    // --- Credentials & secrets -------------------------------------------
+    // Every secret below is pre-seeded with freshly-generated strong entropy — accept with
+    // Enter, or type your own. `.env` is gitignored so these stay local, but we still ship
+    // real randomness rather than a memorable default nobody remembers to rotate.
+    credentials_banner();
+
+    let db_password = if matches!(relational_db, RelationalDb::Sqlite) {
+        String::new() // SQLite is file-based — no server password.
+    } else {
+        Text::new("Database password")
+            .with_default(&secret_key(40))
+            .with_help_message("Reused by the database container and DATABASE_URL.")
+            .prompt()?
+    };
+
+    let superuser_default_email = if author_email.is_empty() {
+        "admin@example.com"
+    } else {
+        author_email.as_str()
+    };
+    let superuser_email = Text::new("Initial admin (superuser) email")
+        .with_default(superuser_default_email)
+        .prompt()?;
+    let superuser_password = Text::new("Initial admin (superuser) password")
+        .with_default(&secret_key(32))
+        .with_help_message("Seeded idempotently on first boot via `manage.py seed_superuser`.")
+        .prompt()?;
+
+    let (flower_user, flower_password) = if use_celery {
+        let user = Text::new("Flower dashboard username")
+            .with_default("flower")
+            .prompt()?;
+        let password = Text::new("Flower dashboard password")
+            .with_default(&secret_key(24))
+            .prompt()?;
+        (user, password)
+    } else {
+        (String::new(), String::new())
+    };
+
+    let redis_password = if use_celery && matches!(celery_broker, CeleryBroker::Redis) {
+        Text::new("Redis password")
+            .with_default(&secret_key(32))
+            .prompt()?
+    } else {
+        String::new()
+    };
+
+    let allowed_hosts = Text::new("Allowed hosts (comma-separated)")
+        .with_default(&defaults.allowed_hosts)
+        .prompt()?;
+    let admin_url_suffix = Text::new("Admin URL suffix (obscures /admin/ from scanners)")
+        .with_default(&secret_key(16).to_lowercase())
+        .prompt()?;
+
     Ok(Recipe {
         project_name,
         project_slug,
@@ -255,14 +310,70 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
         version_control,
         timezone,
         multi_tenant,
+        db_password,
+        superuser_email,
+        superuser_password,
+        flower_user,
+        flower_password,
+        redis_password,
+        allowed_hosts,
+        admin_url_suffix,
     })
 }
 
-fn section(title: &str) {
+/// One-time credentials banner: a bakery pun, then a serious security maxim. Printed once,
+/// just before the secret prompts, so the moment lands without nagging on every field.
+fn credentials_banner() {
     eprintln!(
-        "\n{}  {}\n{}",
-        console::style("▸").cyan().bold(),
-        console::style(title).bold(),
+        "\n  {}{}",
+        console::Emoji("🥐  ", ""),
+        console::style("Fresh-baked secrets, still warm — take them as-is or knead your own.")
+            .bold(),
+    );
+    eprintln!(
+        "  {}",
+        console::style("\"Security is a process, not a product.\" — Bruce Schneier")
+            .dim()
+            .italic(),
+    );
+}
+
+/// The interactive flow's stages, in order. The emoji is a small bakery pun that
+/// also hints at the stage's meaning: a mixing bowl to start, a *stack* of pancakes
+/// for the tech stack, a cherry-on-top for the optional add-ons. `console::Emoji`
+/// degrades to nothing on terminals that don't render emoji.
+const STAGES: [(console::Emoji<'static, 'static>, &str); 3] = [
+    (console::Emoji("🥣 ", ""), "Project basics"),
+    (console::Emoji("🥞 ", ""), "Stack"),
+    (console::Emoji("🍒 ", ""), "Production add-ons"),
+];
+
+/// Render the stepper rail above each section so the user always knows where they
+/// are in the branching questionnaire. Discrete `[n/3]` rather than a percentage —
+/// the number of questions per stage is conditional (graph DB, Radix flavor, broker
+/// only appear sometimes), so a fill-bar would jump around and read as broken.
+fn stage(current: usize) {
+    let separator = console::style("  →  ").dim().to_string();
+    let rail = STAGES
+        .iter()
+        .enumerate()
+        .map(|(index, (emoji, label))| {
+            let step = index + 1;
+            let chip = format!("{emoji}{label}");
+            match step.cmp(&current) {
+                std::cmp::Ordering::Equal => console::style(chip).cyan().bold(),
+                std::cmp::Ordering::Less => console::style(chip).green().dim(),
+                std::cmp::Ordering::Greater => console::style(chip).dim(),
+            }
+            .to_string()
+        })
+        .collect::<Vec<_>>()
+        .join(&separator);
+
+    eprintln!(
+        "\n  {}   {}\n  {}",
+        rail,
+        console::style(format!("[{current}/{}]", STAGES.len())).dim(),
         console::style("─".repeat(60)).dim(),
     );
 }
@@ -298,7 +409,7 @@ impl<T> fmt::Display for Labeled<T> {
 
 // --- option tables -----------------------------------------------------------
 
-use django_bakery_engine::{DjangoVersion, License, PythonVersion, CssFramework, CeleryBroker, ContainerSetup};
+use django_bakery_engine::{DjangoVersion, License, PythonVersion, CssFramework, ContainerSetup};
 
 fn license_options() -> Vec<Labeled<License>> {
     vec![
@@ -443,6 +554,7 @@ fn storage_options() -> Vec<Labeled<Storage>> {
         Labeled { value: Storage::AzureBlob, label: "Azure Blob Storage", hint: "" },
         Labeled { value: Storage::Whitenoise, label: "WhiteNoise (static only)", hint: "no media uploads" },
         Labeled { value: Storage::Nginx, label: "nginx-served media", hint: "self-hosted" },
+        Labeled { value: Storage::None, label: "None", hint: "Django defaults / local filesystem" },
     ]
 }
 

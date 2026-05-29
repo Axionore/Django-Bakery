@@ -48,7 +48,7 @@ pnpm add -D @playwright/test                      # E2E
 ```
 
 For Next.js App Router + Server Components, you can:
-- Keep the existing **session-cookie / allauth-headless** pattern from the [React Full template](https://github.com/Axionore/Django-Barkery) (Client Components only — fetches go through Next's rewrites).
+- Keep the existing **session-cookie / allauth-headless** pattern from the [React Full template](https://github.com/Axionore/Django-Bakery) (Client Components only — fetches go through Next's rewrites).
 - Or use Server Actions to call the Django backend server-side, forwarding the session cookie.
 
 Either way: **never store a token in `localStorage`** — that's an OWASP A02 anti-pattern.

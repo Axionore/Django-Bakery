@@ -15,6 +15,7 @@ pub fn banner() {
             env!("CARGO_PKG_VERSION")
         ))
     );
+    println!("  {}", dim.apply_to("Preheating the oven — let's bake a Django app."));
     println!();
 }
 
@@ -52,10 +53,13 @@ pub fn print_summary(r: &Recipe) {
 
 pub fn print_success(r: &Recipe, report: &RenderReport) {
     let ok = style("✔").green().bold();
+    let croissant = console::Emoji("🥐  ", "");
     println!();
     println!(
-        "{}  Created {} ({} files, {} directories, {} ms)",
+        "{}  {}{} {} ({} files, {} directories, {} ms)",
         ok,
+        croissant,
+        style("Fresh out of the oven —").bold(),
         style(report.project_root.display()).bold(),
         report.files_written,
         report.directories_created,
@@ -75,13 +79,25 @@ pub fn print_success(r: &Recipe, report: &RenderReport) {
             println!("    docker compose -f compose.local.yml up --build");
         }
         django_bakery_engine::ContainerSetup::None => {
-            println!("    uv run python manage.py migrate");
+            // The custom AUTH_USER_MODEL ships without a committed initial migration, so
+            // `makemigrations` must run before `migrate` — otherwise Django aborts with
+            // "Dependency on app with no migrations: users". Mirrors the compose start
+            // script (compose/local/django/start.j2).
+            if r.multi_tenant {
+                println!("    uv run python manage.py makemigrations users tenants");
+                println!("    uv run python manage.py migrate_schemas --shared");
+                println!("    uv run python manage.py bootstrap_public_tenant");
+            } else {
+                println!("    uv run python manage.py makemigrations users");
+                println!("    uv run python manage.py migrate");
+                println!("    uv run python manage.py createsuperuser");
+            }
             println!("    uv run python manage.py runserver");
         }
     }
     println!();
     println!(
-        "  {} https://github.com/Axionore/Django-Barkery",
+        "  {} https://github.com/Axionore/Django-Bakery",
         style("Docs:").bold()
     );
     println!();

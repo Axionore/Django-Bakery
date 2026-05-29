@@ -138,6 +138,14 @@ impl Context {
             )),
         );
         m.insert(
+            "is_mysql".into(),
+            json!(matches!(r.relational_db, crate::recipe::RelationalDb::Mysql)),
+        );
+        m.insert(
+            "is_mariadb".into(),
+            json!(matches!(r.relational_db, crate::recipe::RelationalDb::Mariadb)),
+        );
+        m.insert(
             "has_api".into(),
             json!(!matches!(r.api_layer, crate::recipe::ApiLayer::None)),
         );
@@ -202,18 +210,68 @@ impl Context {
     /// random secrets, the current year, the bakery binary version. Booleans
     /// re-derived from the recipe live in [`recipe_fields`]; we don't repeat
     /// them here.
-    fn engine_extras(_r: &Recipe) -> Map<String, serde_json::Value> {
+    fn engine_extras(r: &Recipe) -> Map<String, serde_json::Value> {
         let mut m = Map::new();
         m.insert("year".into(), json!(current_year()));
         m.insert("django_secret_key".into(), json!(secret_key(50)));
-        m.insert("postgres_password".into(), json!(secret_key(40)));
-        m.insert("redis_password".into(), json!(secret_key(32)));
+
+        // DB password — one value reused by the DB service AND `DATABASE_URL`, so the
+        // auth flow stays in sync. `postgres_password` is kept as a back-compat alias.
+        let db_password = json!(resolve_or_gen(&r.db_password, 40));
+        m.insert("db_password".into(), db_password.clone());
+        m.insert("postgres_password".into(), db_password);
+
+        m.insert("redis_password".into(), json!(resolve_or_gen(&r.redis_password, 32)));
         m.insert("traefik_basic_auth".into(), json!(secret_key(32)));
+
+        // Initial Django superuser, seeded idempotently on first boot. Email falls back to
+        // the author's; password is generated unless the user typed one at setup.
+        let superuser_email = if r.superuser_email.trim().is_empty() {
+            r.author_email.clone()
+        } else {
+            r.superuser_email.clone()
+        };
+        m.insert("superuser_email".into(), json!(superuser_email));
+        m.insert(
+            "superuser_password".into(),
+            json!(resolve_or_gen(&r.superuser_password, 32)),
+        );
+
+        // Celery Flower dashboard credentials (only consumed when Celery is enabled).
+        let flower_user = if r.flower_user.trim().is_empty() {
+            "flower".to_string()
+        } else {
+            r.flower_user.clone()
+        };
+        m.insert("flower_user".into(), json!(flower_user));
+        m.insert(
+            "flower_password".into(),
+            json!(resolve_or_gen(&r.flower_password, 24)),
+        );
+
+        m.insert("allowed_hosts".into(), json!(r.allowed_hosts));
+
         // Non-secret but unguessable: admin URL suffix. Defends against `/admin/` scanners
         // and reduces the noise of automated brute-force on the auth endpoint.
-        m.insert("admin_url_suffix".into(), json!(secret_key(16).to_lowercase()));
+        let admin_url_suffix = if r.admin_url_suffix.trim().is_empty() {
+            secret_key(16).to_lowercase()
+        } else {
+            r.admin_url_suffix.clone()
+        };
+        m.insert("admin_url_suffix".into(), json!(admin_url_suffix));
+
         m.insert("bakery_version".into(), json!(env!("CARGO_PKG_VERSION")));
         m
+    }
+}
+
+/// Use the user's explicit value if they provided one at setup, otherwise generate a fresh
+/// strong secret. Backs the "generate a default, let the user accept-or-override" UX.
+fn resolve_or_gen(value: &str, len: usize) -> String {
+    if value.trim().is_empty() {
+        secret_key(len)
+    } else {
+        value.to_string()
     }
 }
 
@@ -325,7 +383,8 @@ mod tests {
 
 /// Generate a Django-compatible secret key of `len` URL-safe characters.
 ///
-/// Uses a ChaCha20-based CSPRNG seeded from OS entropy. Output is suitable for
+/// Uses a ChaCha20 CSPRNG seeded from OS entropy (via the OS-seeded thread RNG —
+/// rand 0.10 removed the direct `from_os_rng` constructor). Output is suitable for
 /// `SECRET_KEY`, `POSTGRES_PASSWORD`, etc. — never logged, only written to `.env*` files
 /// inside the generated project (which is `.gitignore`'d by default).
 pub fn secret_key(len: usize) -> String {
@@ -335,7 +394,7 @@ pub fn secret_key(len: usize) -> String {
     // `#`, quotes) — secrets written into env files must round-trip through any parser.
     const ALPHABET: &[u8] =
         b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
-    let mut rng = rand_chacha::ChaCha20Rng::from_os_rng();
+    let mut rng = rand_chacha::ChaCha20Rng::from_rng(&mut rand::rng());
     let mut out = String::with_capacity(len);
     for _ in 0..len {
         let b = ALPHABET.choose(&mut rng).copied().unwrap_or(b'x');

@@ -312,32 +312,14 @@ impl<'a> RenderWriter<'a> {
 /// right-hand side can escape the supposed root. `project_slug` is already validated to
 /// `[A-Za-z0-9_]`, but a future template author who reaches for another recipe field in
 /// a path needs this guard so the worst case is a render error rather than an arbitrary
-/// file write. We normalize logically (resolving `..`) without touching the filesystem,
-/// then require the result to remain under `root`.
+/// file write. Both `candidate` and `root` are normalized the *same* way — absolutized
+/// against the current directory, then `.`/`..` folded lexically — before comparing, so a
+/// relative output dir (the default `-o .`) doesn't produce a spurious `./root` vs `root`
+/// mismatch. We never canonicalize on the filesystem, so an attacker-planted symlink in
+/// the output tree cannot widen the comparison.
 fn guard_path_within_root(candidate: &Path, root: &Path) -> Result<()> {
-    use std::path::Component;
-
-    let mut normalized: Vec<Component<'_>> = Vec::new();
-    for comp in candidate.components() {
-        match comp {
-            Component::ParentDir => {
-                let popped = normalized.pop();
-                if popped.is_none()
-                    || matches!(popped, Some(Component::RootDir) | Some(Component::Prefix(_)))
-                {
-                    return Err(Error::InvalidRecipe(format!(
-                        "rendered path {} attempts to escape the target directory",
-                        candidate.display()
-                    )));
-                }
-            }
-            Component::CurDir => {} // skip `.`
-            other => normalized.push(other),
-        }
-    }
-
-    let resolved: std::path::PathBuf = normalized.iter().collect();
-    let canon_root: std::path::PathBuf = root.components().collect();
+    let resolved = normalize_lexically(candidate);
+    let canon_root = normalize_lexically(root);
     if !resolved.starts_with(&canon_root) {
         return Err(Error::InvalidRecipe(format!(
             "rendered path {} resolves outside the target {}",
@@ -346,6 +328,39 @@ fn guard_path_within_root(candidate: &Path, root: &Path) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+/// Make `path` absolute relative to the current directory (without touching the target
+/// filesystem or following symlinks), then collapse `.` and `..` segments lexically. A
+/// `..` that would climb past the filesystem root is clamped at the root rather than
+/// escaping — the subsequent `starts_with` check is what rejects out-of-root paths.
+fn normalize_lexically(path: &Path) -> PathBuf {
+    use std::path::Component;
+
+    let absolute = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join(path)
+    };
+
+    let mut normalized: Vec<Component<'_>> = Vec::new();
+    for comp in absolute.components() {
+        match comp {
+            Component::ParentDir => {
+                if !matches!(
+                    normalized.last(),
+                    None | Some(Component::RootDir) | Some(Component::Prefix(_))
+                ) {
+                    normalized.pop();
+                }
+            }
+            Component::CurDir => {}
+            other => normalized.push(other),
+        }
+    }
+    normalized.iter().collect()
 }
 
 fn strip_jinja_ext(name: &str) -> String {
@@ -400,5 +415,23 @@ mod path_guard_tests {
         let root = Path::new("/tmp/proj");
         assert!(guard_path_within_root(Path::new("/etc/passwd"), root).is_err());
         assert!(guard_path_within_root(Path::new("/tmp/other"), root).is_err());
+    }
+
+    #[test]
+    fn allows_relative_root_with_leading_dot() {
+        // The default `-o .` yields `target_root = ./<slug>` and candidates like
+        // `./<slug>/LICENSE`. Both sides must normalize identically so the leading
+        // `.` doesn't make an in-root path look like an escape.
+        let root = Path::new("./awesomeapp");
+        assert!(guard_path_within_root(Path::new("./awesomeapp/LICENSE"), root).is_ok());
+        assert!(guard_path_within_root(Path::new("./awesomeapp/config/settings/base.py"), root).is_ok());
+        assert!(guard_path_within_root(Path::new("awesomeapp/LICENSE"), root).is_ok());
+    }
+
+    #[test]
+    fn rejects_relative_dotdot_escaping_relative_root() {
+        let root = Path::new("./awesomeapp");
+        assert!(guard_path_within_root(Path::new("./awesomeapp/../etc/passwd"), root).is_err());
+        assert!(guard_path_within_root(Path::new("./awesomeapp/a/../../secret"), root).is_err());
     }
 }

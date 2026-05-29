@@ -4,6 +4,7 @@ expression: tree_listing(&root)
 ---
 .dockerignore
 .editorconfig
+.env
 .env.example
 .github/workflows/ci.yml
 .github/workflows/deploy.yml
@@ -27,6 +28,9 @@ apps/core/views.py
 apps/users/__init__.py
 apps/users/admin.py
 apps/users/apps.py
+apps/users/management/__init__.py
+apps/users/management/commands/__init__.py
+apps/users/management/commands/seed_superuser.py
 apps/users/managers.py
 apps/users/middleware.py
 apps/users/migrations/__init__.py

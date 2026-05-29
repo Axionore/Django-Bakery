@@ -14,9 +14,13 @@ services:
 {%- if bakery.is_postgres %}
       postgres:
         condition: service_healthy
+{%- elif bakery.is_mysqlish %}
+      mysql:
+        condition: service_healthy
 {%- endif %}
 {%- if bakery.use_celery and bakery.celery_broker == 'redis' %}
-      - redis
+      redis:
+        condition: service_started
 {%- endif %}
     command: /start
     restart: unless-stopped
@@ -47,6 +51,35 @@ services:
       - production_postgres_data_backups:/backups
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d {{ bakery.project_slug }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+{%- endif %}
+
+{%- if bakery.is_mysqlish %}
+
+  mysql:
+    # Official image (named `mysql` to match DATABASE_URL's host). MySQL 9 and
+    # MariaDB LTS both accept the MYSQL_* init vars and `mysqladmin ping`.
+{%- if bakery.is_mariadb %}
+    image: mariadb:lts
+{%- else %}
+    image: mysql:9
+{%- endif %}
+    env_file:
+      - .env
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-{{ bakery.project_slug }}}
+    volumes:
+      - production_mysql_data:/var/lib/mysql
+    healthcheck:
+{%- if bakery.is_mariadb %}
+      # MariaDB ships `healthcheck.sh` (no `mysqladmin` binary).
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+{%- else %}
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p${MYSQL_ROOT_PASSWORD} --silent"]
+{%- endif %}
       interval: 10s
       timeout: 5s
       retries: 6
@@ -106,6 +139,9 @@ volumes:
 {%- if bakery.is_postgres %}
   production_postgres_data: {}
   production_postgres_data_backups: {}
+{%- endif %}
+{%- if bakery.is_mysqlish %}
+  production_mysql_data: {}
 {%- endif %}
 {%- if bakery.use_celery and bakery.celery_broker == 'redis' %}
   production_redis_data: {}
