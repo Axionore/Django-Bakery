@@ -383,7 +383,8 @@ mod tests {
 
 /// Generate a Django-compatible secret key of `len` URL-safe characters.
 ///
-/// Uses a ChaCha20-based CSPRNG seeded from OS entropy. Output is suitable for
+/// Uses a ChaCha20 CSPRNG seeded from OS entropy (via the OS-seeded thread RNG —
+/// rand 0.10 removed the direct `from_os_rng` constructor). Output is suitable for
 /// `SECRET_KEY`, `POSTGRES_PASSWORD`, etc. — never logged, only written to `.env*` files
 /// inside the generated project (which is `.gitignore`'d by default).
 pub fn secret_key(len: usize) -> String {
@@ -393,7 +394,7 @@ pub fn secret_key(len: usize) -> String {
     // `#`, quotes) — secrets written into env files must round-trip through any parser.
     const ALPHABET: &[u8] =
         b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
-    let mut rng = rand_chacha::ChaCha20Rng::from_os_rng();
+    let mut rng = rand_chacha::ChaCha20Rng::from_rng(&mut rand::rng());
     let mut out = String::with_capacity(len);
     for _ in 0..len {
         let b = ALPHABET.choose(&mut rng).copied().unwrap_or(b'x');
