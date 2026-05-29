@@ -216,6 +216,52 @@ fn rendered_files_never_contain_skip_sentinel() {
 }
 
 #[test]
+fn rendered_files_never_contain_unrendered_template_vars() {
+    // A template file that's byte-copied instead of rendered (because it lacks a `.j2`
+    // extension) ships raw Jinja into the generated project — e.g. `_dot_gitignore` once
+    // leaked `{% if bakery.frontend ... %}` into every `.gitignore`. Scan the whole tree:
+    // any line carrying a Jinja delimiter together with a `bakery`/`cookiecutter`
+    // reference means that file never went through the renderer.
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+
+    let leak = regex::Regex::new(r"\{\{\s*bakery|\{%[^%]*bakery|cookiecutter").unwrap();
+    let mut offenders = Vec::new();
+    for entry in walkdir::WalkDir::new(&root) {
+        let entry = entry.expect("walk");
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let path = entry.path();
+        let ext = path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+        if matches!(
+            ext,
+            "png" | "jpg" | "jpeg" | "ico" | "woff" | "woff2" | "ttf"
+        ) {
+            continue;
+        }
+        let body = String::from_utf8_lossy(&fs::read(path).expect("read")).into_owned();
+        for (idx, line) in body.lines().enumerate() {
+            // Match an unrendered template variable: `{{ bakery…`, a `{% … bakery … %}`
+            // tag, or any `cookiecutter` reference. The `[^%]*` stops at the closing `%}`,
+            // so a Django `{% block %}` followed by the prose "django-bakery" is NOT a hit.
+            if leak.is_match(line) {
+                offenders.push(format!("{}:{}  {}", path.display(), idx + 1, line.trim()));
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "rendered files contain unrendered Jinja referencing bakery/cookiecutter \
+         (a template file is probably missing its .j2 extension):\n  - {}",
+        offenders.join("\n  - "),
+    );
+}
+
+#[test]
 fn base_settings_reflects_recipe_choices() {
     let recipe = Recipe::defaults();
     let (_tmp, root) = render_recipe(&recipe);
@@ -427,20 +473,120 @@ fn production_compose_uses_env_redis_password() {
 }
 
 #[test]
-fn base_settings_secret_key_no_insecure_default() {
+fn secret_key_required_in_prod_defaulted_in_local() {
     let recipe = Recipe::defaults();
     let (_tmp, root) = render_recipe(&recipe);
     let base = read(&root, "config/settings/base.py");
-    // The old "insecure-fallback-only-for-checks" string must not be present anymore.
+    let local = read(&root, "config/settings/local.py");
+    let production = read(&root, "config/settings/production.py");
+
+    // base.py must NOT assign or enforce SECRET_KEY. It executes during
+    // `from .base import *`, so any raise there fires before the leaf module can supply a
+    // value — which is exactly what crashed a fresh `manage.py migrate` in local dev.
     assert!(
-        !base.contains("insecure-fallback-only-for-checks"),
-        "base.py must NOT carry the old hardcoded fallback secret key"
+        !base.contains("SECRET_KEY ="),
+        "base.py must not assign SECRET_KEY — the leaf settings modules own it"
     );
     assert!(
-        base.contains("ImproperlyConfigured")
-            && base.contains("DJANGO_SECRET_KEY must be set in production"),
-        "base.py must hard-fail in production when DJANGO_SECRET_KEY is unset"
+        !base.contains("ImproperlyConfigured"),
+        "base.py must not raise on a missing secret key during import"
     );
+    // production.py reads it from the env with NO default, so startup hard-fails when unset.
+    assert!(
+        production.contains(r#"SECRET_KEY = env("DJANGO_SECRET_KEY")"#),
+        "production.py must read DJANGO_SECRET_KEY with no default (hard-fail when unset)"
+    );
+    // local.py supplies a clearly-non-secret development default so dev runs without a .env.
+    assert!(
+        local.contains("DJANGO_SECRET_KEY")
+            && local.contains("default=")
+            && local.contains("local-only-not-secret"),
+        "local.py must provide a dev default secret key so dev runs out of the box"
+    );
+}
+
+#[test]
+fn env_generated_for_container_setups() {
+    // Default recipe is compose-traefik + postgres → a working `.env` must be emitted so
+    // `docker compose up` runs out of the box (the bug real-boot verification surfaced).
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    assert_present(&root, ".env");
+    let env = read(&root, ".env");
+    assert!(env.contains("DJANGO_SUPERUSER_EMAIL="), ".env must seed the superuser");
+    assert!(env.contains("DATABASE_URL="), ".env must define DATABASE_URL");
+    assert!(env.contains("POSTGRES_PASSWORD="), ".env must carry the DB password");
+}
+
+#[test]
+fn env_skipped_for_bare_metal() {
+    let mut recipe = Recipe::defaults();
+    recipe.container_setup = ContainerSetup::None;
+    let (_tmp, root) = render_recipe(&recipe);
+    // No compose ⇒ no generated `.env` (bare-metal relies on local.py defaults); the
+    // committed `.env.example` is still shipped so users can opt in.
+    assert_absent(&root, ".env");
+    assert_present(&root, ".env.example");
+}
+
+#[test]
+fn env_db_password_override_is_respected() {
+    let mut recipe = Recipe::defaults();
+    recipe.db_password = "CustomPw_12345".into();
+    let (_tmp, root) = render_recipe(&recipe);
+    let env = read(&root, ".env");
+    assert!(
+        env.contains("POSTGRES_PASSWORD=CustomPw_12345"),
+        "an explicit db_password must flow into POSTGRES_PASSWORD"
+    );
+    assert!(
+        env.contains("postgres://postgres:CustomPw_12345@postgres:5432/"),
+        "DATABASE_URL must use the overridden password (kept in sync with the service)"
+    );
+}
+
+#[test]
+fn mysql_compose_service_uses_mysql_image() {
+    let mut recipe = Recipe::defaults();
+    recipe.relational_db = RelationalDb::Mysql;
+    let (_tmp, root) = render_recipe(&recipe);
+    let compose = read(&root, "compose.local.yml");
+    assert!(compose.contains("\n  mysql:"), "a `mysql` DB service must be defined");
+    assert!(compose.contains("image: mysql:9"), "mysql recipe must use the mysql:9 image");
+    let env = read(&root, ".env");
+    assert!(
+        env.contains("MYSQL_ROOT_PASSWORD=") && env.contains("@mysql:3306/"),
+        ".env must wire the mysql root password + host"
+    );
+}
+
+#[test]
+fn mariadb_compose_service_uses_mariadb_image() {
+    let mut recipe = Recipe::defaults();
+    recipe.relational_db = RelationalDb::Mariadb;
+    let (_tmp, root) = render_recipe(&recipe);
+    let compose = read(&root, "compose.local.yml");
+    // Service is named `mysql` for both engines so DATABASE_URL's host stays constant.
+    assert!(compose.contains("\n  mysql:"), "a DB service must be defined");
+    assert!(
+        compose.contains("image: mariadb:lts"),
+        "mariadb recipe must use the mariadb image"
+    );
+}
+
+#[test]
+fn seed_superuser_command_is_rendered() {
+    let recipe = Recipe::defaults();
+    let (_tmp, root) = render_recipe(&recipe);
+    let cmd = "apps/users/management/commands/seed_superuser.py";
+    assert_present(&root, cmd);
+    let body = read(&root, cmd);
+    assert!(
+        body.contains("create_superuser") && body.contains("DJANGO_SUPERUSER_EMAIL"),
+        "seed_superuser must create the admin idempotently from env"
+    );
+    assert_present(&root, "apps/users/management/__init__.py");
+    assert_present(&root, "apps/users/management/commands/__init__.py");
 }
 
 #[test]

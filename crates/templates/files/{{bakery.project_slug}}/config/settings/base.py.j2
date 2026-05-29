@@ -22,23 +22,12 @@ if env_file.is_file():
 # ---------------------------------------------------------------------------
 # Core
 # ---------------------------------------------------------------------------
-SECRET_KEY = env("DJANGO_SECRET_KEY", default=None)
-if not SECRET_KEY:
-    # In dev only (DJANGO_DEBUG=True), generate an in-memory throwaway so `manage.py check`
-    # works on a fresh clone. NEVER reachable in production — production settings load
-    # this module first and would have died on the env() lookup above if DJANGO_SECRET_KEY
-    # wasn't set (we removed the default).
-    if env.bool("DJANGO_DEBUG", default=False):
-        import secrets as _secrets
-
-        SECRET_KEY = _secrets.token_urlsafe(50)
-    else:
-        from django.core.exceptions import ImproperlyConfigured
-
-        raise ImproperlyConfigured(
-            "DJANGO_SECRET_KEY must be set in production (no fallback). "
-            "See .env.example for the expected variable name."
-        )
+# SECRET_KEY is intentionally NOT set in base. Each leaf settings module owns it:
+# local.py / test.py supply a non-secret development default so the app runs out of the
+# box without a .env, while production.py reads `env("DJANGO_SECRET_KEY")` with NO default
+# and raises if it's unset. Defining it here would execute during `from .base import *`
+# and pre-empt those overrides (the leaf hasn't run yet) — the trap that crashed a fresh
+# `manage.py migrate` even in local dev.
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "0.0.0.0", "127.0.0.1"])
 

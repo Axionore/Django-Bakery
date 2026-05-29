@@ -16,6 +16,9 @@ services:
 {%- if bakery.is_postgres %}
       postgres:
         condition: service_healthy
+{%- elif bakery.is_mysqlish %}
+      mysql:
+        condition: service_healthy
 {%- endif %}
 {%- if bakery.use_mailpit %}
       mailpit:
@@ -71,6 +74,42 @@ services:
     # `docker compose exec postgres psql` or change to a different host port.
     ports:
       - "127.0.0.1:5432:5432"
+{%- endif %}
+
+{%- if bakery.is_mysqlish %}
+
+  mysql:
+    # MySQL 9 or MariaDB LTS — both speak the MySQL wire protocol and accept the
+    # MYSQL_* init vars, so one service (named `mysql`, matching DATABASE_URL's host)
+    # covers both. Credentials come from the gitignored `.env` (generated with a
+    # random password); the server init and DATABASE_URL share MYSQL_ROOT_PASSWORD.
+{%- if bakery.is_mariadb %}
+    image: mariadb:lts
+{%- else %}
+    image: mysql:9
+{%- endif %}
+    env_file:
+      - .env
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-{{ bakery.project_slug }}}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      # The check must pass only once the server accepts connections, or
+      # `depends_on: service_healthy` hangs forever. MariaDB ships no `mysqladmin`
+      # binary (renamed to `mariadb-admin`) but bundles `healthcheck.sh`; MySQL ships
+      # `mysqladmin`. Use the right probe per engine.
+{%- if bakery.is_mariadb %}
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+{%- else %}
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p${MYSQL_ROOT_PASSWORD} --silent"]
+{%- endif %}
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    # Bind only to localhost — same OWASP A05 rationale as Postgres above.
+    ports:
+      - "127.0.0.1:3306:3306"
 {%- endif %}
 
 {%- if bakery.use_mailpit %}
@@ -177,6 +216,9 @@ volumes:
 {%- if bakery.is_postgres %}
   postgres_data: {}
   postgres_data_backups: {}
+{%- endif %}
+{%- if bakery.is_mysqlish %}
+  mysql_data: {}
 {%- endif %}
 {%- if bakery.use_celery and bakery.celery_broker == 'redis' %}
   redis_data: {}

@@ -39,7 +39,7 @@ Every generated project includes — **completely wired up**, no follow-up setup
 | Layer         | Default                                                             | Alternates                                                                    |
 | ------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | Backend       | Django 6 + Python 3.14                                              | Python 3.13                                                                   |
-| Database      | PostgreSQL 18                                                       | SQLite / MySQL 8 / MariaDB 11                                                 |
+| Database      | PostgreSQL 18                                                       | SQLite / MySQL 9 / MariaDB LTS (all three run under Docker Compose too)       |
 | Graph DB      | _none_                                                              | Neo4j / NebulaGraph / SurrealDB / Dgraph                                      |
 | API           | Django Ninja                                                        | DRF · GraphQL (Strawberry) · GraphQL (Graphene) · none                        |
 | Frontend      | HTMX + Alpine.js                                                    | React + Vite + Radix Themes/Primitives · Nuxt 4 · Django templates · headless |
@@ -164,38 +164,42 @@ django-bakery new --preset team-defaults.toml
 
 Anything in `team-defaults.toml` becomes the new default for that prompt; everything else still asks.
 
-### 3. After generation — wiring the local dev loop
+### 3. After generation — running the local dev loop
 
-The next steps are printed by the generator, but here they are in full:
+How you boot depends on the `container_setup` you chose. Either way, the secrets you set at
+the **Credentials** prompts (DB password, initial superuser, Flower/Redis passwords, allowed
+hosts, admin-URL suffix) are already in place — each was pre-seeded with freshly-generated
+strong entropy you could accept or override; blank fields in a recipe file are generated at
+render time.
+
+**Docker Compose (the default).** Nothing to wire by hand. `django-bakery` writes a
+**gitignored `.env`** with those real secrets, and the container's start script runs
+migrations and seeds the superuser idempotently on first boot:
 
 ```bash
 cd <your-project-slug>
-
-# Backend deps (uv — fast, single source of truth in pyproject.toml + uv.lock)
-uv sync
-
-# Custom AUTH_USER_MODEL needs its initial migration on first boot
-uv run python manage.py makemigrations users
-uv run python manage.py migrate
-
-# (Multi-tenant projects: use `migrate_schemas --shared` and bootstrap
-#  the public Tenant — see docs/multi-tenancy.md inside the project)
-
-uv run python manage.py createsuperuser
-
-# Pre-commit hooks (ruff, ruff-format, djlint, gitleaks, codespell)
-uv run pre-commit install
+docker compose -f compose.local.yml up --build   # Postgres, MySQL, or MariaDB — all supported
 ```
 
-Run the stack however your `container_setup` choice produced:
+That brings up the database (behind a healthcheck), Django (migrated + superuser seeded),
+Mailpit, and — if enabled — Redis + Celery worker/beat/Flower.
+
+**No container (`container_setup = none`).** Drive the loop yourself:
 
 ```bash
-# If you chose docker compose (the default):
-docker compose -f compose.local.yml up --build
+cd <your-project-slug>
+uv sync                                  # backend deps (uv — pyproject.toml + uv.lock)
+uv run pre-commit install                # ruff, ruff-format, djlint, gitleaks, codespell
 
-# If you chose `none`:
+# Custom AUTH_USER_MODEL has no committed initial migration — generate it first:
+uv run python manage.py makemigrations users
+uv run python manage.py migrate
+uv run python manage.py createsuperuser  # or `seed_superuser` once DJANGO_SUPERUSER_* are in .env
 uv run python manage.py runserver
-# (And for SPA frontends: `cd frontend && pnpm install && pnpm dev` in another tab.)
+# (SPA frontends: `cd frontend && pnpm install && pnpm dev` in another tab.)
+
+# Multi-tenant: swap `migrate` for `migrate_schemas --shared` and bootstrap the public
+# Tenant — see docs/multi-tenancy.md inside the generated project.
 ```
 
 Hit `http://localhost:8000/`. The auto-generated project ships with:

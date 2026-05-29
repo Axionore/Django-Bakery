@@ -22,4 +22,6 @@ uv run python manage.py bootstrap_public_tenant
 uv run python manage.py makemigrations users --noinput
 uv run python manage.py migrate --noinput
 {%- endif %}
+# Idempotent: creates the admin from DJANGO_SUPERUSER_* in .env, no-ops if it exists.
+uv run python manage.py seed_superuser
 uv run python manage.py runserver 0.0.0.0:8000

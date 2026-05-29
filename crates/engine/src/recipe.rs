@@ -57,6 +57,40 @@ pub struct Recipe {
     /// it uses native Postgres schemas).
     #[serde(default)]
     pub multi_tenant: bool,
+
+    // --- credentials & setup secrets -------------------------------------
+    // Each defaults to "" which the engine reads as "generate a fresh strong
+    // value at render time". A non-empty value is an explicit override the user
+    // typed at setup (or wrote into a recipe file). All `#[serde(default)]` so
+    // pre-existing recipe TOMLs still parse under `deny_unknown_fields`.
+    /// Database password. "" ⇒ generated. Used by both the DB service and DATABASE_URL.
+    #[serde(default)]
+    pub db_password: String,
+    /// Initial Django superuser email. "" ⇒ falls back to `author_email`.
+    #[serde(default)]
+    pub superuser_email: String,
+    /// Initial Django superuser password. "" ⇒ generated.
+    #[serde(default)]
+    pub superuser_password: String,
+    /// Celery Flower dashboard username. "" ⇒ "flower".
+    #[serde(default)]
+    pub flower_user: String,
+    /// Celery Flower dashboard password. "" ⇒ generated.
+    #[serde(default)]
+    pub flower_password: String,
+    /// Redis AUTH password (Celery+Redis). "" ⇒ generated.
+    #[serde(default)]
+    pub redis_password: String,
+    /// DJANGO_ALLOWED_HOSTS (comma-separated).
+    #[serde(default = "default_allowed_hosts")]
+    pub allowed_hosts: String,
+    /// Obfuscated admin URL suffix (defends `/admin/` scanners). "" ⇒ generated.
+    #[serde(default)]
+    pub admin_url_suffix: String,
+}
+
+fn default_allowed_hosts() -> String {
+    "localhost,127.0.0.1,0.0.0.0".into()
 }
 
 impl Recipe {
@@ -99,11 +133,22 @@ impl Recipe {
             version_control: VersionControl::Git,
             timezone: "UTC".into(),
             multi_tenant: false,
+            // Secrets/setup: empty ⇒ engine generates a fresh strong value at render.
+            db_password: String::new(),
+            superuser_email: String::new(),
+            superuser_password: String::new(),
+            flower_user: String::new(),
+            flower_password: String::new(),
+            redis_password: String::new(),
+            allowed_hosts: default_allowed_hosts(),
+            admin_url_suffix: String::new(),
         }
     }
 
     pub fn is_postgres(&self) -> bool { matches!(self.relational_db, RelationalDb::Postgres) }
     pub fn is_sqlite(&self) -> bool { matches!(self.relational_db, RelationalDb::Sqlite) }
+    pub fn is_mysql(&self) -> bool { matches!(self.relational_db, RelationalDb::Mysql) }
+    pub fn is_mariadb(&self) -> bool { matches!(self.relational_db, RelationalDb::Mariadb) }
     pub fn is_mysqlish(&self) -> bool {
         matches!(self.relational_db, RelationalDb::Mysql | RelationalDb::Mariadb)
     }
