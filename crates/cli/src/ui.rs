@@ -15,7 +15,10 @@ pub fn banner() {
             env!("CARGO_PKG_VERSION")
         ))
     );
-    println!("  {}", dim.apply_to("Preheating the oven — let's bake a Django app."));
+    println!(
+        "  {}",
+        dim.apply_to("Preheating the oven — let's bake a Django app.")
+    );
     println!();
 }
 
@@ -129,11 +132,7 @@ pub fn print_options() {
 }
 
 fn row(label: &str, value: &str) {
-    println!(
-        "  {:>10}  {}",
-        style(label).cyan(),
-        style(value).bold()
-    );
+    println!("  {:>10}  {}", style(label).cyan(), style(value).bold());
 }
 
 fn tick(on: bool, label: &str) -> String {

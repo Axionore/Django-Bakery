@@ -63,26 +63,44 @@ mod tests {
     #[test]
     fn snake_case_filter_handles_spaces_and_camel() {
         let env = env_with_filters();
-        assert_eq!(env.render_str("{{ 'My Awesome App' | snake_case }}", ()).unwrap(), "my_awesome_app");
-        assert_eq!(env.render_str("{{ 'AcmeCorp' | snake_case }}", ()).unwrap(), "acme_corp");
+        assert_eq!(
+            env.render_str("{{ 'My Awesome App' | snake_case }}", ())
+                .unwrap(),
+            "my_awesome_app"
+        );
+        assert_eq!(
+            env.render_str("{{ 'AcmeCorp' | snake_case }}", ()).unwrap(),
+            "acme_corp"
+        );
     }
 
     #[test]
     fn kebab_case_filter() {
         let env = env_with_filters();
-        assert_eq!(env.render_str("{{ 'MyAwesomeApp' | kebab_case }}", ()).unwrap(), "my-awesome-app");
+        assert_eq!(
+            env.render_str("{{ 'MyAwesomeApp' | kebab_case }}", ())
+                .unwrap(),
+            "my-awesome-app"
+        );
     }
 
     #[test]
     fn camel_case_filter() {
         let env = env_with_filters();
-        assert_eq!(env.render_str("{{ 'my_awesome_app' | camel_case }}", ()).unwrap(), "MyAwesomeApp");
+        assert_eq!(
+            env.render_str("{{ 'my_awesome_app' | camel_case }}", ())
+                .unwrap(),
+            "MyAwesomeApp"
+        );
     }
 
     #[test]
     fn env_var_filter_uppercases_and_normalizes() {
         let env = env_with_filters();
-        assert_eq!(env.render_str("{{ 'my-app.name' | env_var }}", ()).unwrap(), "MY_APP_NAME");
+        assert_eq!(
+            env.render_str("{{ 'my-app.name' | env_var }}", ()).unwrap(),
+            "MY_APP_NAME"
+        );
     }
 
     #[test]

@@ -96,11 +96,7 @@ fn relevant_packages(r: &Recipe) -> Wanted {
         pypi.push("sentry-sdk");
     }
     if r.use_observability {
-        pypi.extend([
-            "structlog",
-            "django-structlog",
-            "opentelemetry-sdk",
-        ]);
+        pypi.extend(["structlog", "django-structlog", "opentelemetry-sdk"]);
     }
     match r.api_layer {
         crate::recipe::ApiLayer::Ninja => pypi.push("django-ninja"),
@@ -123,9 +119,19 @@ fn relevant_packages(r: &Recipe) -> Wanted {
     let mut npm = Vec::<&'static str>::new();
     match r.frontend {
         crate::recipe::Frontend::React => {
-            npm.extend(["react", "react-dom", "vite", "typescript", "@vitejs/plugin-react"]);
+            npm.extend([
+                "react",
+                "react-dom",
+                "vite",
+                "typescript",
+                "@vitejs/plugin-react",
+            ]);
             if matches!(r.radix_flavor, Some(crate::recipe::RadixFlavor::Themes)) {
-                npm.extend(["@radix-ui/themes", "@radix-ui/react-icons", "@radix-ui/colors"]);
+                npm.extend([
+                    "@radix-ui/themes",
+                    "@radix-ui/react-icons",
+                    "@radix-ui/colors",
+                ]);
             } else if matches!(r.radix_flavor, Some(crate::recipe::RadixFlavor::Primitives)) {
                 npm.extend(["@radix-ui/react-dialog", "tailwindcss", "@tailwindcss/vite"]);
             }
@@ -136,10 +142,23 @@ fn relevant_packages(r: &Recipe) -> Wanted {
             npm.extend(["nuxt", "vue", "typescript", "@tailwindcss/vite"]);
         }
         crate::recipe::Frontend::Vue => {
-            npm.extend(["vue", "vue-router", "pinia", "@vitejs/plugin-vue", "vite", "typescript"]);
+            npm.extend([
+                "vue",
+                "vue-router",
+                "pinia",
+                "@vitejs/plugin-vue",
+                "vite",
+                "typescript",
+            ]);
         }
         crate::recipe::Frontend::Next => {
-            npm.extend(["next", "react", "react-dom", "eslint-config-next", "typescript"]);
+            npm.extend([
+                "next",
+                "react",
+                "react-dom",
+                "eslint-config-next",
+                "typescript",
+            ]);
         }
         crate::recipe::Frontend::HtmxAlpine => {
             npm.extend(["htmx.org", "alpinejs"]);
@@ -208,8 +227,8 @@ fn is_prerelease(version: &str) -> bool {
             let after = pos + marker.len();
             let next = bytes.get(after).copied();
             let prev_is_digit = matches!(prev, Some(c) if c.is_ascii_digit());
-            let next_ok = next.is_none()
-                || matches!(next, Some(c) if c.is_ascii_digit() || c == b'.');
+            let next_ok =
+                next.is_none() || matches!(next, Some(c) if c.is_ascii_digit() || c == b'.');
             if prev_is_digit && next_ok {
                 return true;
             }
@@ -303,8 +322,14 @@ mod tests {
         // strings, no leading `^`/`~`, no obvious nonsense.
         for (k, v) in defaults() {
             assert!(!v.is_empty(), "{k} has empty value");
-            assert!(!v.starts_with('^'), "{k} = {v} must not include a semver range marker");
-            assert!(!v.starts_with('~'), "{k} = {v} must not include a semver range marker");
+            assert!(
+                !v.starts_with('^'),
+                "{k} = {v} must not include a semver range marker"
+            );
+            assert!(
+                !v.starts_with('~'),
+                "{k} = {v} must not include a semver range marker"
+            );
             assert!(
                 v.chars().next().is_some_and(|c| c.is_ascii_digit()),
                 "{k} = {v} must start with a digit"
@@ -397,7 +422,11 @@ mod tests {
             r.radix_flavor = radix;
             assert_covered(&r, &format!("frontend={}", frontend.as_str()));
         }
-        for css in [CssFramework::Tailwind, CssFramework::Bootstrap, CssFramework::None] {
+        for css in [
+            CssFramework::Tailwind,
+            CssFramework::Bootstrap,
+            CssFramework::None,
+        ] {
             let mut r = Recipe::defaults();
             r.css_framework = css;
             assert_covered(&r, &format!("css={}", css.as_str()));
