@@ -83,11 +83,31 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
     let python_version = pick("Python version", py_options(), defaults.python_version)?;
     let django_version = pick("Django version", django_options(), defaults.django_version)?;
     let mode = pick("Primary mode", mode_options(), defaults.mode)?;
-    let relational_db = pick(
+    let mut relational_db = pick(
         "Primary relational database",
         db_options(),
         defaults.relational_db,
     )?;
+    // Tenancy model — always asked so the SaaS-vs-single-tenant choice is explicit (not
+    // hidden behind the DB pick). django-tenants gives each tenant its own PostgreSQL
+    // schema, so multi-tenant requires Postgres; if another DB was chosen, switch to it
+    // with a notice rather than failing validation later.
+    let multi_tenant = Confirm::new("Multi-tenant SaaS app? (isolated data per tenant)")
+        .with_default(defaults.multi_tenant)
+        .with_help_message(
+            "Yes → django-tenants: one PostgreSQL schema per tenant, an `apps/tenants/` app \
+             (Tenant + Domain models + a `create_tenant` command), and INSTALLED_APPS split \
+             into SHARED_APPS + TENANT_APPS. Requires PostgreSQL. No → a standard \
+             single-tenant project.",
+        )
+        .prompt()?;
+    if multi_tenant && !matches!(relational_db, RelationalDb::Postgres) {
+        eprintln!(
+            "  {}  Multi-tenant requires PostgreSQL — switching the database to PostgreSQL.",
+            console::style("→").yellow()
+        );
+        relational_db = RelationalDb::Postgres;
+    }
     let graph_db = pick("Graph database add-on", graph_options(), defaults.graph_db)?;
     let api_layer = pick("API layer", api_options(), defaults.api_layer)?;
     let frontend = pick("Frontend", frontend_options(), defaults.frontend)?;
@@ -160,17 +180,6 @@ pub fn interactive(preset: Option<&Recipe>) -> Result<Recipe> {
     let use_feature_flags = Confirm::new("Add django-waffle feature flags?")
         .with_default(defaults.use_feature_flags)
         .prompt()?;
-    let multi_tenant = if matches!(relational_db, RelationalDb::Postgres) {
-        Confirm::new("Multi-tenant via django-tenants (PG-schema-per-tenant)?")
-            .with_default(defaults.multi_tenant)
-            .with_help_message(
-                "Adds an `apps/tenants/` app with Tenant + Domain models, a `create_tenant` \
-                 management command, and splits INSTALLED_APPS into SHARED_APPS + TENANT_APPS.",
-            )
-            .prompt()?
-    } else {
-        false
-    };
     let type_checker = pick("Type checker", typecheck_options(), defaults.type_checker)?;
     let use_pre_commit = Confirm::new("Add pre-commit hooks (ruff, djlint, mypy, gitleaks)?")
         .with_default(defaults.use_pre_commit)

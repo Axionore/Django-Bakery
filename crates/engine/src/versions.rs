@@ -253,33 +253,31 @@ fn is_prerelease(version: &str) -> bool {
 pub fn compat_check(recipe: &Recipe, versions: &VersionMap) -> Vec<String> {
     let mut warnings = Vec::new();
     if let Some(django) = versions.get("py.django") {
-        if let Ok(v) = Version::parse(&semver_safe(django)) {
-            if v.major < 6 {
-                warnings.push(format!(
-                    "Django {django} is below the 6.x baseline django-bakery targets; \
-                     some templates may use 6.x-only APIs"
-                ));
-            }
+        if let Ok(v) = Version::parse(&semver_safe(django))
+            && v.major < 6
+        {
+            warnings.push(format!(
+                "Django {django} is below the 6.x baseline django-bakery targets; \
+                 some templates may use 6.x-only APIs"
+            ));
         }
         // django-stubs major must match Django major
-        if let Some(stubs) = versions.get("py.django-stubs") {
-            if !majors_match(django, stubs) {
-                warnings.push(format!(
-                    "django-stubs {stubs} may not match Django {django}; check the django-stubs release notes"
-                ));
-            }
+        if let Some(stubs) = versions.get("py.django-stubs")
+            && !majors_match(django, stubs)
+        {
+            warnings.push(format!(
+                "django-stubs {stubs} may not match Django {django}; check the django-stubs release notes"
+            ));
         }
     }
-    if recipe.use_celery {
-        if let Some(c) = versions.get("py.celery") {
-            if let Ok(v) = Version::parse(&semver_safe(c)) {
-                if v.major < 5 || (v.major == 5 && v.minor < 4) {
-                    warnings.push(format!(
-                        "Celery {c} is below 5.4; Django 6 async ORM compatibility requires 5.4+"
-                    ));
-                }
-            }
-        }
+    if recipe.use_celery
+        && let Some(c) = versions.get("py.celery")
+        && let Ok(v) = Version::parse(&semver_safe(c))
+        && (v.major < 5 || (v.major == 5 && v.minor < 4))
+    {
+        warnings.push(format!(
+            "Celery {c} is below 5.4; Django 6 async ORM compatibility requires 5.4+"
+        ));
     }
     warnings
 }
@@ -312,6 +310,9 @@ fn majors_match(a: &str, b: &str) -> bool {
 }
 
 #[cfg(test)]
+// `defaults()` is a large bundled-data fn intentionally kept at the bottom of the file;
+// relocating it purely to satisfy this stylistic lint would add churn with no benefit.
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
 
